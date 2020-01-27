@@ -3,7 +3,7 @@
 Non-graphical functions should be externalized for console use.
 Relevant data is kept  and shared through the 'Data' class."""
 
-    # Support functions       
+    # Basic support functions       
 def mul_strDict(string):
     """Support function to turn a string into a Dictionary.
     Keys and values are always strings."""
@@ -82,7 +82,7 @@ def mul_strType(string):
             return int(string)
     else:
         return string
-
+    # Main support functions
 def mul_load(data=None,f="",**args):
     """Loads a properties file.
     Currently deprecated..."""
@@ -282,7 +282,6 @@ def mul_tryImp(data=None,o="",pack=""):
                 return None
     import sys
     return __import__(path,fromlist=[o])
-
     # Temporary function while waiting for a... cleaner way...
 def mul_convert(data=None,in_module=None,out_module=None,
                 infiles=[],outfiles=[],**args):
@@ -748,7 +747,7 @@ class SpecField(Canvas):
             # Writeframe elements
             ## Label
         wrlabel = Label(writeframe,text="Writing options")
-        wrlabel.grid(row=0,column=0,columnspan=4,sticky=N+S+W+E,padx=2,pady=2)
+        wrlabel.grid(row=0,column=0,columnspan=5,sticky=N+S+W+E,padx=2,pady=2)
             ## File name
         wrlabel1 = Label(writeframe,text="File name:",anchor=W)
         wrlabel1.grid(row=1,column=0,columnspan=2,
