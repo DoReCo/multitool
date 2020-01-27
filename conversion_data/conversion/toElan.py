@@ -57,8 +57,8 @@ def writeHeader(file,trans):
             med = dict.get(n_link); n_media = "LINKED_FILE_DESCRIPTOR"
         if not med:
             break
-        check == True
-        n_media = "\t\t<{} ".format(n_media)
+        check = True
+        n_media = "\t\t<{}".format(n_media)
         for key,value in med.items():
             n_media = n_media + " {}=\"{}\"".format(key,value)
         file.write(n_media+"/>\n")
@@ -269,5 +269,4 @@ def toElan(f, trans, **args):
         # 'B_morph_type'; 'B_word-txt-wca'
             # FOOTER
         writeFooter(file,trans,l_types)
-            
-            
+        file.write("</ANNOTATION_DOCUMENT>")

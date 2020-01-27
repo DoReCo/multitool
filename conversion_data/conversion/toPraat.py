@@ -3,9 +3,9 @@ from .Transcription import Transcription, Tier
 def escape(data):
     """Support function to replace xml>sax>saxutils."""
     
-    data = data.replace("\"","\"\"").replace("&quot;","\"") \
-               .replace("&apos;","'").replace("&lt;","<") \
-               .replace("&gt;",">").replace("&amp;","&")
+    data = data.replace("&quot;","\"").replace("&apos;","'") \
+               .replace("&lt;","<").replace("&gt;",">") \
+               .replace("&amp;","&").replace("\"","\"\"")
     return data
 
 def toPraat(f, trans, **args):
@@ -18,13 +18,9 @@ def toPraat(f, trans, **args):
     for tier in trans:
         tier.checksegment()
         # Encoding
-    encoding = args.get('encoding')
-    if not encoding:
-        encoding = "utf-8"
+    encoding = args.get('encoding',"utf-8")
         # Sym   (used to fill 'False' segments)
-    sym = args.get('sym')
-    if not sym:
-        sym = "_"
+    sym = args.get('sym',"_")
         # We write
     with open(f, 'w', encoding=encoding) as file:
         file.write("File type = \"ooTextFile\"\nObject class = \"TextGrid\"\n\n"
