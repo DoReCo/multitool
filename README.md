@@ -2,7 +2,7 @@
 A file conversion/manipulation software for corpus linguistics.
 
 ## 0. Readme updates
-(François Delafontaine: Lyon, 17-01-2020)
+(François Delafontaine: Lyon, 27-01-2020)
 
 ## 1. Context
 The *multitool* has been started around 2015 to anonymize and convert files for the [OFROM](http://www11.unine.ch/) corpus (at Neuchatel, Switzerland). Initially in C++, it was reworked between 2016-9 in the ANR-DFG [SegCor](segcor.cnrs.fr) project (at Orleans, France) and translated in Python. It is now and since 2019 being developped within the ANR-DFG [DoReCo](http://www.doreco.info/) project (at Lyon, France). 
@@ -19,7 +19,7 @@ This software's public (in corpus linguistics) is expected to have little to no 
 
 ## 3. Limitations
 No versioning has been yet set in place.
-* No dedicated interface (graphical or for console) has been put in place.
+* Only a barebone user interface (console and graphical) has been put in place.
 * Likewise, scripts don't integrate error messages.
 * Current supported formats are. 'Praat (.TextGrid)', 'Elan (.eaf)', 'Exmaralda (.exb)', 'Pangloss (.xml)', 'TEI (.tei)'.
 * Scripts available in 'tools' should be considered deprecated by default.
