@@ -1,5 +1,25 @@
 from .Transcription import Transcription, Tier
 import xml.etree.cElementTree as ETree
+import os
+
+def escape(data):
+    """Support function to replace 'xml>sax>saxutils'.
+    Why is that needed here I don't know."""
+    
+    data = data.replace("&quot;","\"").replace("&apos;","'") \
+               .replace("&lt;","<").replace("&gt;",">").replace("&amp;","&")
+    return data
+def getFormat(f,trans):
+    """Support function to get the transcription's name and format."""
+        # Name
+    if trans.metadata.transcript.name:
+        trans.name = trans.metadata.transcript.name[0]
+    else:
+        trans.name = os.path.splitext(f)
+        trans.metadata.transcript.name = [trans.name]
+        # Format
+    trans.format = "tei"
+    trans.metadata.transcript.format = trans.format
 
 def readFloat(timestamp,unit):
     """Support support function for 'readTime'.

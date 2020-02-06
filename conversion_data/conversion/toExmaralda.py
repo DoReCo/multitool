@@ -6,26 +6,7 @@ def escape(data):
     data = data.replace("&","&amp;").replace("\"","&quot;") \
                .replace("'","&apos;").replace("<","&lt;").replace(">","&gt;")
     return data
-
-def checkSpeakers(trans):
-    """Support function to make sure each tier has a speaker."""
-    tier_spk = trans.tierSpeakers()
-    tran_spk = trans.transSpeakers()
-    for tuple in tier_spk:
-        if tuple[0] not in tran_spk:
-            trans.metadata.addspeaker(tuple[0])
-    if not trans.metadata.speakers:
-        l_spk = []
-        for tier in trans:
-            if tier.pindex < 0:
-                l_spk.append(tier)
-        for tier in l_spk:
-            trans.metadata.addspeaker(tier.name)
-            tier.metadata['speaker'] = tier.name
-            l_child = tier.getAllChildren(1)
-            for cind in l_child:
-                trans.tiers[cind].metadata['speaker'] = tier.name
-                trans.tiers[cind].type = "a"    
+   
 def writeMeta(file,trans):
     """Support function to write the header's metadata.
     /!\ Only stores "transcript" metadata in user-defined metadata."""
@@ -181,26 +162,32 @@ def toExmaralda(f, trans, **args):
     Relies on the "saxutils" library to escape xml characters."""
     
         # Encoding
-    encoding = "utf-8"
-    if "encoding" in args:
-        encoding = args["encoding"]
-    trans.timetable.clear()
-    trans.setchildtime()
-    checkSpeakers(trans)
-
+    encoding = args.get('encoding',"utf-8")
+        # We need a list of transcriptions
+    if not args.get('multiple',False):
+        trans = [trans]; f = [f]
+    
         # We write
-    with open(f, 'w', encoding=encoding) as file:
-            #XML header
-        file.write("<?xml version=\"1.0\" encoding=\"{}\"?>\n".format(encoding)+
-                   "<!-- (c) http://www.rrz.uni-hamburg.de/exmaralda -->\n")
-            # Metadata
-        writeMeta(file,trans)
-            # Speakers
-        writeSpeakers(file,trans)
-            # Timetable
-        timeorder = writeTime(file,trans)
-            # Tiers
-        for a in range(len(trans)):
-            tier = trans.tiers[a]
-            writeTier(file,trans,a,tier,timeorder)
-        file.write("\n\t</basic-body>\n</basic-transcription>")
+    for a in range(len(trans)):
+        tran = trans[a]; ff = f[a]
+            # Complete information
+        tran.timetable.clear()
+        tran.setchildtime()
+        tran.checkSpeakers()
+        with open(ff, 'w', encoding=encoding) as file:
+                #XML header
+            file.write("<?xml version=\"1.0\" encoding=\"{}\"?>\n"
+                       .format(encoding)+
+                       "<!-- (c) http://www.rrz.uni-hamburg.de/exmaralda -->\n")
+                # Metadata
+            writeMeta(file,tran)
+                # Speakers
+            writeSpeakers(file,tran)
+                # Timetable
+            timeorder = writeTime(file,tran)
+                # Tiers
+            for a in range(len(tran)):
+                tier = tran.tiers[a]
+                writeTier(file,tran,a,tier,timeorder)
+            file.write("\n\t</basic-body>\n</basic-transcription>")
+    return 0

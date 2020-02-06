@@ -1,5 +1,6 @@
 from .Transcription import Transcription, Tier
 import xml.etree.cElementTree as ETree
+import os
 
 def escape(data):
     """Support function to replace 'xml>sax>saxutils'.
@@ -9,6 +10,14 @@ def escape(data):
                .replace("&lt;","<").replace("&gt;",">") \
                .replace("&amp;","&")
     return data
+def getFormat(f,trans):
+    """Support function to get the transcription's name and format."""
+        # Name
+    trans.name = os.path.splitext(f)
+    trans.metadata.transcript.name = [trans.name]
+        # Format
+    trans.format = "elan"
+    trans.metadata.transcript.format = trans.format
 
 def readTime(trans,elem,timeorder):
     """Support function simply to fill that timeorder.
@@ -204,14 +213,5 @@ def fromElan(f,**args):
         # I am tired of time errors
     trans.setchildtime()
         # Transcription name and format
-    if "\\" in f:
-        name = f.rsplit("\\", 1)[1]
-    elif "/" in f:
-        name = f.rsplit("/", 1)[1]
-    else:
-        name = f
-    trans.name = name.rsplit(".",1)[0]
-    trans.format = "elan"
-    trans.metadata.transcript.format = trans.format
-    trans.metadata.transcript.name = [trans.name]
+    getFormat(f,trans)
     return trans

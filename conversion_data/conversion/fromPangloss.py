@@ -1,5 +1,6 @@
 from .Transcription import Transcription, Tier
 import xml.etree.cElementTree as ETree
+import os
 
 class Plev:
     """Support class storing one level."""
@@ -98,6 +99,17 @@ def escape(data):
     data = data.replace("&quot;","\"").replace("&apos;","'") \
                .replace("&lt;","<").replace("&gt;",">").replace("&amp;","&")
     return data
+def getFormat(f,trans):
+    """Support function to get the transcription's name and format."""
+        # Name
+    if trans.metadata.transcript.name:
+        trans.name = trans.metadata.transcript.name[0]
+    else:
+        trans.name = os.path.splitext(f)
+        trans.metadata.transcript.name = [trans.name]
+        # Format
+    trans.format = "pangloss"
+    trans.metadata.transcript.format = trans.format
     
 def getStruct(trans,ptree):
     """Support function to assign refs / timestamps."""
@@ -389,17 +401,5 @@ def fromPangloss(f,**args):
         # We get the refs / timestamps
     getStruct(trans,ptree)
         # We get the name / format
-    trans.format = "pangloss"
-    trans.metadata.transcript.format = trans.format
-    if trans.metadata.transcript.name:
-        trans.name = trans.metadata.transcript.name[0]
-    else:
-        if "\\" in f:
-            name = f.rsplit("\\", 1)[1]
-        elif "/" in f:
-            name = f.rsplit("/", 1)[1]
-        else:
-            name = f
-        trans.name = name.rsplit(".",1)[0]
-        trans.metadata.transcript.name = [trans.name]
+    
     return trans

@@ -413,8 +413,7 @@ def toPangloss(f,trans,**args):
         # Variables
         ## 'l_plevs' for the 'levels' argument
         ## 'l_type' for the 'types' argument
-    l_plevs = args.get('levels',["TEXT","S","M","W"])
-    lp = len(l_plevs)
+    l_plevs = args.get('levels',["TEXT","S","M","W"]); lp = len(l_plevs)
     l_type = args.get('types',{})
     pangloss = False # If it was imported from a Pangloss file.
     if trans.format == "pangloss":

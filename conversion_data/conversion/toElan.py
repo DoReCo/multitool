@@ -86,9 +86,6 @@ def writeTime(file,trans):
     """Support function to write the timetable"""
     
     timeorder = {}
-        # Timetable
-    if not trans.timetable:
-            trans.settimetable(1)
         # We apply
     file.write("\n\t<TIME_ORDER>\n")
     for a in range(len(trans.timetable)):
@@ -249,24 +246,29 @@ def toElan(f, trans, **args):
     Footer is simply copied as is from an 'elan' file, or defaulted."""
     
         # Encoding
-    encoding = args.get('encoding')
-    if not encoding:
-        encoding = "utf-8"
-    trans.setstructure()
+    encoding = args.get('encoding',"utf-8")
+        # We need a list of transcriptions
+    if not args.get('multiple',False):
+        trans = [trans]; f = [f]
         # We write
-    with open(f, 'w', encoding=encoding) as file:
-        copy = ""
-            # XML head
-        file.write("<?xml version=\"1.0\" encoding=\"{}\"?>\n".format(encoding))
-            # HEADER
-        writeHeader(file,trans)
-            # TIME_ORDER
-        timeorder = writeTime(file,trans)
-            # TIERS
-        l_types = []
-        for tier in trans.tiers:
-            writeTier(file,trans,tier,timeorder,l_types)
-        # 'B_morph_type'; 'B_word-txt-wca'
-            # FOOTER
-        writeFooter(file,trans,l_types)
-        file.write("</ANNOTATION_DOCUMENT>")
+    for a in range(len(trans)):
+        tran = trans[a]; ff = f[a]
+            # Complete information
+        trans.settimetable(1); trans.setstructure()
+        with open(ff, 'w', encoding=encoding) as file:
+            copy = ""
+                # XML head
+            file.write("<?xml version=\"1.0\" encoding=\"{}\"?>\n".format(encoding))
+                # HEADER
+            writeHeader(file,tran)
+                # TIME_ORDER
+            timeorder = writeTime(file,tran)
+                # TIERS
+            l_types = []
+            for tier in tran.tiers:
+                writeTier(file,tran,tier,timeorder,l_types)
+            # 'B_morph_type'; 'B_word-txt-wca'
+                # FOOTER
+            writeFooter(file,tran,l_types)
+            file.write("</ANNOTATION_DOCUMENT>")
+    return 0

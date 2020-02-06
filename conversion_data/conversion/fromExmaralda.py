@@ -1,5 +1,6 @@
 from .Transcription import Transcription, Tier
 import xml.etree.cElementTree as ETree
+import os
 
 def escape(data):
     """Support function to replace 'xml>sax>saxutils'.
@@ -8,6 +9,15 @@ def escape(data):
     data = data.replace("&quot;","\"").replace("&apos;","'") \
                .replace("&lt;","<").replace("&gt;",">").replace("&amp;","&")
     return data
+def getFormat(f,trans):
+    """Support function to get the transcription's name and format."""
+        # Name
+    if not trans.name:
+        trans.name = os.path.splitext(f)
+    trans.metadata.transcript.name = [trans.name]
+        # Format
+    trans.format = "exmaralda"
+    trans.metadata.transcript.format = trans.format
 
 def readMeta(elem,trans):
     """Support function to add some metadata to the Transcription object.
@@ -259,15 +269,5 @@ def fromExmaralda(f, **args):
         # A series of checks
     checkTrans(trans)
         # We get name and format
-    trans.format = "exmaralda"
-    trans.metadata.transcript.format = trans.format
-    if not trans.name:
-        if "\\" in f:
-            name = f.rsplit("\\", 1)[1]
-        elif "/" in f:
-            name = f.rsplit("/", 1)[1]
-        else:
-            name = f
-        trans.name = name.rsplit(".",1)[0]
-        trans.metadata.transcript.name = [trans.name]
+    getFormat(f,trans)
     return trans

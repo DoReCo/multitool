@@ -1,22 +1,32 @@
 from .Transcription import Transcription, Tier
+import os
 
 def escape(data):
     """Support function to clean the content"""
     
     data = data.replace("\"\"","\"")
     return data
+def getFormat(f,trans):
+    """Support function to get the transcription's name and format."""
+        # Name
+    trans.name = os.path.splitext(f)
+    trans.metadata.transcript.name = [trans.name]
+        # Format
+    trans.format = "praat"
+    trans.metadata.transcript.format = trans.format
+
 def fromPraat(f, **args):
     """Create a Transcription object representing the TextGrid transcription.
     
-    Only handles the 'text file' format. Will have to handle 'short text' and 'binary'
-    eventually."""
+    Only handles the 'text file' format. Will have to handle 'short text'
+    and 'binary' eventually."""
     
     trans = Transcription()
+        # Encoding
     encoding = args.get('encoding')
-    sym = args.get('sym')
-    if not sym:
-        sym = ["_"]
-    elif isinstance(sym,str):
+        # False unit symbol
+    sym = args.get('sym',["_"])
+    if isinstance(sym,str):
         sym = [sym]
         # We test the encoding (utf-8 or utf-16)
     if not encoding:
@@ -31,6 +41,7 @@ def fromPraat(f, **args):
             else:
                 print("Not an ooTextFile type.")
                 return trans
+
         # Now we open in text mode
     with open(f, encoding=encoding) as file:
             # We test the type of TextGrid
@@ -71,14 +82,5 @@ def fromPraat(f, **args):
                     if content == s:
                         tier.segments[-1].unit = False; break
         # Transcription name / format
-    if "\\" in f:
-        name = f.rsplit("\\", 1)[1]
-    elif "/" in f:
-        name = f.rsplit("/", 1)[1]
-    else:
-        name = f
-    trans.name = name.rsplit(".",1)[0]
-    trans.format = "praat"
-    trans.metadata.transcript.format = trans.format
-    trans.metadata.transcript.name = [trans.name]
+    getFormat(f,trans)
     return trans

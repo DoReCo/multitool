@@ -1087,6 +1087,25 @@ class Transcription:
         for key in self.metadata.speakers.keys():
             l_spk.append(key)
         return l_spk
+    def checkSpeakers(self):
+        """Makes sure each tier has a speaker."""
+        tier_spk = self.tierSpeakers()
+        tran_spk = self.transSpeakers()
+        for tuple in tier_spk:
+            if tuple[0] not in tran_spk:
+                self.metadata.addspeaker(tuple[0])
+        if not self.metadata.speakers:
+            l_spk = []
+            for tier in self.tiers:
+                if tier.pindex < 0:
+                    l_spk.append(tier)
+            for tier in l_spk:
+                self.metadata.addspeaker(tier.name)
+                tier.metadata['speaker'] = tier.name
+                l_child = tier.getAllChildren(1)
+                for cind in l_child:
+                    self.tiers[cind].metadata['speaker'] = tier.name
+                    self.tiers[cind].type = "a"  
     def clear(self,mode=0):
         if mode == 0:
             self.timetable.clear()

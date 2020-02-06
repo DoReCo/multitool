@@ -202,7 +202,72 @@ def writeTime(file,trans):
         timeorder[time] = id
     file.write("\n\t\t</timeline>")
     return timeorder
-def writeTiers(file,trans,timeorder):
+def writeInterp(file,trans):
+    """Support function to write 'interp'."""
+    
+        # Variables
+    tierorder = {}; count = 0; id = ""
+        # We fill 'tierorder' and write
+    file.write("\n\t\t<interpGrp type=\"tiers\">")
+    for tier in trans:
+        id = "tier"+str(count); count += 1
+        tierorder[tier.name] = id
+        file.write("\n\t\t\t<interp xml:id=\"{}\" type=\"tier\">"
+                   .format(id))
+            # We fill in the metadata
+            ## Static metadata
+        name = tier.name; type = tier.type; parent = tier.parent
+        speaker = tier.metadata.get('speaker')
+        lang = tier.metadata.get('language')
+        start = ""; end = ""
+        if tier.start >= 0:
+            start = "{:.3f}".format(tier.start)
+        if tier.end >= 0:
+            end = "{:.3f}".format(tier.end)
+        if start or end or name or type or speaker or lang or parent:
+            file.write("\n\t\t\t\t<fs xml:id=\"{}m1\" type=\"st_metadata\">"
+                       .format(id))
+            if name:
+                file.write("\n\t\t\t\t\t<f name=\"name\">{}</f>"
+                           .format(name))
+            if type:
+                file.write("\n\t\t\t\t\t<f name=\"type\">{}</f>"
+                           .format(type))
+            if start:
+                file.write("\n\t\t\t\t\t<f name=\"start\">{}</f>"
+                           .format(start))
+            if end:
+                file.write("\n\t\t\t\t\t<f name=\"end\">{}</f>"
+                           .format(end))
+            if parent:
+                file.write("\n\t\t\t\t\t<f name=\"dependency\">{}</f>"
+                           .format(parent))
+            if speaker:
+                file.write("\n\t\t\t\t\t<f name=\"speaker\">{}</f>"
+                           .format(speaker))
+            if lang:
+                file.write("\n\t\t\t\t\t<f name=\"language\">{}</f>"
+                           .format(lang))
+            file.write("\n\t\t\t\t</fs>")
+            ## Dynamic metadata (user-defined)
+        check = False
+        for key in tier.metadata:
+            if key == 'speaker' or key == 'language':
+                continue
+            check = True; break
+        if check:
+            file.write("\n\t\t\t\t<fs xml:id=\"{}m2\" type=\"ud_metadata\">"
+                       .format(id))
+            for key,value in tier.metadata.items():
+                if key == 'speaker' or key == 'language':
+                    continue
+                file.write("\n\t\t\t\t\t<f name=\"{}\">{}</f>"
+                           .format(key,value))
+            file.write("\n\t\t\t\t</fs>")
+        file.write("\n\t\t\t</interp>")
+    file.write("\n\t\t</interpGrp>")
+    return tierorder
+def writeTiers(file,trans,timeorder,tierorder):
     """Support function to write the 'tiers'..."""
     
         # Variables
@@ -231,7 +296,8 @@ def writeTiers(file,trans,timeorder):
             pid += 1
         s_end = timeorder[pseg.end]; old = pseg.end
             # tier attributes
-        attrib = " xml:id=\"{}\" type=\"{}\"".format("aB"+str(uid),ptier.name)
+        attrib = (" xml:id=\"{}\" ana=\"{}\""
+                 .format("aB"+str(uid),tierorder[ptier.name]))
         spk = ptier.metadata['speaker']
         if spk:
             attrib = attrib + " who=\"{}\"".format(escape(spk))
@@ -253,8 +319,8 @@ def writeTiers(file,trans,timeorder):
             cpos = l_cpos[p][a]  # child segment index
             ctier = trans.tiers[csi]; lct = len(ctier)
                 # We write <spanGrp>
-            file.write("\n\t\t\t\t<spanGrp xml:id=\"{}\" type=\"{}\">"
-                       .format("sG"+str(gid),ctier.name))
+            file.write("\n\t\t\t\t<spanGrp xml:id=\"{}\" ana=\"{}\">"
+                       .format("sG"+str(gid),tierorder[ctier.name]))
             gid += 1
                 # We write <span>
             for b in range(cpos,lct):
@@ -277,31 +343,38 @@ def toTEI(f, trans, **args):
     """Creates a TEI file from a Transcription object."""
     
         # Encoding
-    encoding = args.get('encoding')
-    if not encoding:
-        encoding = "utf-8"
-        # Making sure the needed information is there
-    trans.setchildtime()
-    for tier in trans:
-        tier.checktime()
+    encoding = args.get('encoding',"utf-8")
+        # We need a list of transcriptions
+    if not args.get('multiple',False):
+        trans = [trans]; f = [f]
     
         # We write
-    with open(f, 'w', encoding=encoding) as file:
-            #XML header
-        file.write("<?xml version=\"1.0\" encoding=\"{}\"?>\n"
-                   "<TEI xmlns=\"http://www.tei-c.org/ns/1.0\">"
-                   .format(encoding))
-            # Metadata
-        writeHeader(file,trans)
-            # TEXT tag
-        lang = trans.metadata.transcript.open.get('lang')
-        if not lang:
-            lang = ""
-        file.write("\n\t<text xml:lang=\"{}\">".format(lang))
-            # Timetable
-        timeorder = writeTime(file,trans)
-            # Tiers
-        file.write("\n\t\t<body>")
-        writeTiers(file,trans,timeorder)
-            # End of file
-        file.write("\n\t\t</body>\n\t</text>\n</TEI>")
+    for a in range(len(trans)):
+        tran = trans[a]; ff = f[a]
+            # Complete information
+        tran.setchildtime()
+        for tier in tran:
+            tier.checktime()
+        with open(ff, 'w', encoding=encoding) as file:
+                #XML header
+            file.write("<?xml version=\"1.0\" encoding=\"{}\"?>\n"
+                       "<TEI xmlns=\"http://www.tei-c.org/ns/1.0\">"
+                       .format(encoding))
+                # Metadata
+            writeHeader(file,tran)
+                # TEXT tag
+            lang = tran.metadata.transcript.open.get('lang')
+            if not lang:
+                file.write("\n\t<text>")
+            else:
+                file.write("\n\t<text xml:lang=\"{}\">".format(lang))
+                # Timetable
+            timeorder = writeTime(file,tran)
+                # Interp
+            tierorder = writeInterp(file,tran)
+                # Tiers
+            file.write("\n\t\t<body>")
+            writeTiers(file,tran,timeorder,tierorder)
+                # End of file
+            file.write("\n\t\t</body>\n\t</text>\n</TEI>")
+    return 0
