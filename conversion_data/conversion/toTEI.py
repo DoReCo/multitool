@@ -190,8 +190,7 @@ def writeTime(file,trans):
     timeorder = {0.:"T0"}
     file.write("\n\t\t<timeline unit=\"s\">\n\t\t\t"
                "<when absolute=\"00:00:00.0\" xml:id=\"T0\" />")
-    if not trans.timetable:
-        trans.settimetable(1)
+    trans.settimetable(1,truetype=False)
     count = 1; id = ""
     for time in trans.timetable:
         if time == 0: # We already have "0"
@@ -315,7 +314,7 @@ def writeTiers(file,trans,timeorder,tierorder):
             # We deal with the children
         for a in range(len(l_struct[p])):
                 # Child tier variables
-            csi = l_struct[p][a] # child tier index
+            csi = l_struct[p][a][0] # child tier index
             cpos = l_cpos[p][a]  # child segment index
             ctier = trans.tiers[csi]; lct = len(ctier)
                 # We write <spanGrp>

@@ -9,7 +9,8 @@ def escape(data):
 def getFormat(f,trans):
     """Support function to get the transcription's name and format."""
         # Name
-    trans.name = os.path.splitext(f)
+    trans.name = os.path.split(f)[1]
+    trans.name = os.path.splitext(trans.name)[0]
     trans.metadata.transcript.name = [trans.name]
         # Format
     trans.format = "praat"

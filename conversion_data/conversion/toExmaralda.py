@@ -109,8 +109,6 @@ def writeTime(file,trans):
     """Support function to write the timetable."""
     
     timeorder = {}
-    if not trans.timetable:
-        trans.settimetable(1)
     count = 0; id = ""
     for time in trans.timetable:
         id = "T"+str(count); count += 1
@@ -171,9 +169,9 @@ def toExmaralda(f, trans, **args):
     for a in range(len(trans)):
         tran = trans[a]; ff = f[a]
             # Complete information
-        tran.timetable.clear()
-        tran.setchildtime()
-        tran.checkSpeakers()
+        tran.settimetable(1,truetype=False)
+        tran.setchildtime(); tran.checkSpeakers()
+            # Actual writing
         with open(ff, 'w', encoding=encoding) as file:
                 #XML header
             file.write("<?xml version=\"1.0\" encoding=\"{}\"?>\n"

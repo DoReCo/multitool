@@ -1,13 +1,5 @@
 from .Transcription import Transcription, Tier
 
-""" toElan
-        writeHeader
-            writeHOpen
-        writeTime
-        writeTier
-            writeRefSeg
-            writeTimeSeg """
-
 def escape(data):
     """Support function to replace xml>sax>saxutils."""
     
@@ -96,7 +88,8 @@ def writeTime(file,trans):
         else:
                 # /!\ milliseconds!
             file.write("\t\t<TIME_SLOT TIME_SLOT_ID=\""+id+"\" TIME_VALUE="
-                       "\""+"{:.3f}".format(trans.timetable[a]).replace('.','')+"\"/>\n")
+                       "\""+"{:.3f}"
+                       .format(trans.timetable[a]).replace('.','')+"\"/>\n")
             timeorder[trans.timetable[a]] = id
     file.write("\t</TIME_ORDER>\n")
     return timeorder
@@ -176,18 +169,13 @@ def writeTier(file,trans,tier,timeorder,l_types):
         file.write(" PARTICIPANT=\"{}\"".format(escape(spk)))
     if auth:
         file.write(" ANNOTATOR=\"{}\"".format(escape(auth)))
+    if not tier.segments:
+        file.write(" />\n"); return
     file.write(">\n")
         # SEGMENTS
             # symbolic-association / symbolic-subdivision
-    if tier.truetype and (tier.truetype != "time"):
-        par = -1
-        for a in range(len(trans.tiers)):
-            if tier.parent == trans.tiers[a].name:
-                par = a; break
-        if par == -1:
-            tier.truetype = "time"
-        else:
-            writeRefSeg(file,trans,tier)
+    if tier.truetype == "ref":
+        writeRefSeg(file,trans,tier)
         # time-alignement / time-subdivision / included-in
     else:
         writeTimeSeg(file,trans,tier,timeorder)
@@ -254,11 +242,12 @@ def toElan(f, trans, **args):
     for a in range(len(trans)):
         tran = trans[a]; ff = f[a]
             # Complete information
-        trans.settimetable(1); trans.setstructure()
+        tran.settimetable(1); tran.setstructure()
         with open(ff, 'w', encoding=encoding) as file:
             copy = ""
                 # XML head
-            file.write("<?xml version=\"1.0\" encoding=\"{}\"?>\n".format(encoding))
+            file.write("<?xml version=\"1.0\" encoding=\"{}\"?>\n"
+                       .format(encoding))
                 # HEADER
             writeHeader(file,tran)
                 # TIME_ORDER

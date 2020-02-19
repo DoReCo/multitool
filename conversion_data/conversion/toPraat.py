@@ -25,8 +25,6 @@ def toPraat(f, trans, **args):
         tran = trans[a]; ff = f[a]
             # Complete information
         tran.setchildtime(); tran.checktime(1); tran.uptime(1)
-        for tier in tran:
-            tier.checksegment()
             # Actual writing
         with open(ff, 'w', encoding=encoding) as file:
                 # Header
@@ -36,7 +34,7 @@ def toPraat(f, trans, **args):
                        .format(tran.start,tran.end,len(tran.tiers)))
                 # Tier
             for a in range(len(tran.tiers)):
-                tier = tran.tiers[a]
+                tier = tran.tiers[a].copy(); tier.checksegment()
                 file.write("\titem [{}]:\n\t\tclass = \"IntervalTier\"\n\t\tname"
                         " = \"{}\"\n\t\txmin = {:.3f}\n\t\txmax"
                         " = {:.3f}\n\t\tintervals: size = {}\n"

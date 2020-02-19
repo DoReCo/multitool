@@ -18,9 +18,7 @@ A transcription in oral linguistics is a transcription (text) time-aligned
  ...), each type has its own set of segments: this is called here a 'tier'."""
         
 class Segment:
-    """A container class for "annotation units".
-    
-    Methods are anecdotal."""
+    """A container class for "annotation units"."""
     def __init__(self, start=0., end=0., cont="", id="", ref="",
                  unit=True, tier=None):
         self.start = start
@@ -42,10 +40,10 @@ class Segment:
                        self.unit,self.tier)
         copy.pangloss = self.pangloss.copy()
         copy.notes = self.notes.copy()
-        copy.elan = self.elan.copy()
         copy.metadata = self.metadata.copy()
         return copy
         
+        # Basic functions
     def setseg(self, **args):
         """Helps with 'safely' updating the segment.
         Only updates the given arguments."""
@@ -67,15 +65,110 @@ class Segment:
     def uptime(self, start, end):
         self.start = start
         self.end = end
-    
+        # Get information
+    def getindexes(self,t_ind=-1,s_ind=-1):
+        """Retrieves the tier and segment indexes."""
+        
+            # We need the tier...
+        if not self.tier:
+            return (-1,-1)
+            # ... and the tier's trans
+        trans = self.tier.trans
+        if not trans:
+            t_ind = -1
+            # Whose index we must check
+        elif ((t_ind < 0 or t_ind > len(trans)) or (not
+            trans.tiers[t_ind] == self.tier)):
+            t_ind = -1
+            for a in range(len(trans)):
+                if trans.tiers[a] == self.tier:
+                    t_ind = a; break
+            # We want the segment index anyway
+        if ((s_ind < 0 or s_ind >= len(self.tier)) or (not
+            self.tier.segments[s_ind] == self)):
+            s_ind = -1
+            for a in range(len(self.tier)):
+                if self.tier.segments[a] == self:
+                    s_ind = a; break
+        return (t_ind,s_ind)
+    def gettree(self,t_ind=-1,s_ind=-1):
+        """Get all parent and children segments for that segment.
+        ARGUMENT:
+        - 't_ind'   :   the tier index
+        - 's_ind'   :   the segment index
+        RETURNS:
+        - a list of tuples (tier_index,p/ctier_index,
+                            list_segindex,p/cseg_index)
+        The list is organized around this segment's tier. All above will give
+        a child tier index, all under a parent tier index. Likewise for the 
+        'reference segment index'. This segment's tier is included, with the
+        index repeated for the tier and segment.
+        Note: all in linear order.
+        Note: relies on IDs."""
+        
+            # Variables
+        l_master = []
+            # Checks
+            ## If 'trans', 'tier' exist and the indexes
+        t_ind,s_ind = self.getindexes(t_ind,s_ind)
+        if t_ind < 0 or s_ind < 0:
+            return l_master
+        trans = self.tier.trans
+        
+            # We fill the list
+            ## We get the parents
+        o_ind = t_ind; index = self.tier.pindex
+        ptier = self.tier; self.tier.checkparenting(index)
+        ss_ind = s_ind; ref = self.ref
+        while ptier.pindex >= 0 and ref:
+            ptier = trans.tiers[index]; ptier.checkparenting(index)
+                # We find the segment
+            for a in range(len(ptier)):
+                if ptier.segments[a].id == ref:
+                    l_master.append((index,o_ind,[a],ss_ind))
+                    ref = ptier.segments[a].ref; ss_ind = a; break
+            o_ind = index; index = ptier.pindex
+        l_master.reverse(); l_master.append((t_ind,t_ind,[s_ind],s_ind))
+            ## We get the children
+        l_struct = self.tier.getallchildren(1)
+        if not l_struct:
+            return l_master
+        l_ids = [(t_ind,t_ind,[s_ind])]; l_temp = []; l_cur = l_ids[0]
+        for a in range(1,len(l_struct)):
+            c_ind = l_struct[a][0]; ctier = trans.tiers[c_ind]
+            ctier.checkparenting(c_ind)
+                # We are lazy (and also needlessly thorough)
+            d_segs = {}
+            for a in range(len(ctier)):
+                ref = ctier.segments[a].ref
+                if ref in d_segs:
+                    d_segs[ref].append(a)
+                else:
+                    d_segs[ref] = [a]
+                # We need the correct parent tier
+            if not ctier.pindex == l_cur[0]:
+                check = False
+                for b in range(len(l_ids)-1,0,-1):
+                    if ctier.pindex == l_ids[b][0]:
+                        check = True; l_cur = l_ids[b]; break
+                    if check:
+                        break
+                if not check: # wut
+                    continue
+                # We find the segments
+            for ss_ind in l_cur[2]:
+                id = trans.tiers[l_cur[0]].segments[ss_ind].id
+                if id in d_segs:
+                    l_temp = l_temp + d_segs[id]
+                # We update the reference segments
+            l_master.append((c_ind,ctier.pindex,l_temp.copy(),ss_ind))
+            l_ids.append((c_ind,ctier.pindex,l_temp.copy()))
+            l_temp.clear()
+        return l_master
 class Tier:
     """A list of Segment classes corresponding to a tier.
     
-    When iterated upon, returns each segment in 'self.segments'.
-    'checktime'     : uses the segments timestamps to set the tier's start/end.
-    'addsegment'    : should be a safe way to add segments.
-    'content'       : returns a list of all segments' content.
-    Other methods are anecdotal."""
+    When iterated upon, returns each segment in 'self.segments'."""
     
     def __init__(self, name="", start=-1., end=-1., trans=None):
         self.name = name
@@ -120,7 +213,8 @@ class Tier:
         copy.pindex = self.pindex; copy.level = self.level
         copy.children = self.children.copy()
         return copy
-      
+    
+        # Experiment for quick segment access through timestamps
     def sethash(self):
         """Create a list of lists of indexes to fast-find a segment.
         Only use after checking the tier's time boundaries.
@@ -192,7 +286,6 @@ class Tier:
         a = 0
         while a < lh:
             s = list[lh-(a+1)]
-            #print("check:",a,s, list)
             for b in range(len(self.thash[a][pos])-2):
                 if ((s >= self.thash[a][pos][b][0]) and
                     (s < self.thash[a][pos][b+1][0])):
@@ -212,13 +305,14 @@ class Tier:
             if ((time >= self.segments[a].start) and
                 (time <= self.segments[a].end)):
                 return self.segments[a]
-      
+        # Basic functions
     def uptime(self, t_d, t_i):
         self.start = t_d
         self.end = t_i
     def checktime(self):
         self.start = self.segments[0].start
         self.end = self.segments[-1].end
+        # Functions to add content
     def addsegment(self, p=-1, start=-1., end=-1., cont="", id="", ref="",
                    unit=True, tier=None, mode=0):
         """Inserts a new segment.
@@ -239,19 +333,319 @@ class Tier:
                                      start, "", id, "", False, tier)); p += 1
             # Actual insertion
         self.segments.insert(p, Segment(start, end, cont, id, ref, unit, tier))
-    def checksegment(self):
+    def addchild(self,index):
+        """Inserts a child tier index in 'children'.
+        RETURNS: '0/1' if success/failure."""
+        
+            # Index needs to be valid
+        if index < 0 or index >= len(self.trans.tiers):
+            return 1
+        elif index in self.children:
+            return 0
+            # Inserting
+            ## If no other value
+        if not self.children or index > self.children[-1]:
+            self.children.append(index); return 0
+            ## Else
+        for a in range(len(self.children)):
+            if index < self.children[a]:
+                self.children.insert(a,index); return 0
+        # Function to get information
+    def gettierindex(self,index=-1):
+        """Tier index is not stored, as it can easily change.
+        This is to retrieve it 'quickly'."""
+        
+        if not self.trans:
+            return -1
+        lt = len(self.trans.tiers)
+        check = False
+        if ((index < 0 or index >= lt) or (not
+            self.trans.tiers[index] == self)):
+            for a in range(lt):
+                if self.trans.tiers[a] == self:
+                    return a
+            return -1
+        return index
+    def getsegtree(self,t_ind=-1,l_ind=[]):
+        """Gets all the parent and children segments for those segments.
+        ARGUMENTS:
+        - 't_ind'   :   this tier's index
+        - 's_ind'   :   the list of segments (default all)
+        RETURNS:
+        - a list of lists of tuples
+          (tier_index,p/ctier_index,list_segindex,p/cseg_index)
+        See the Segment equivalent for more."""
+        
+            # Variables
+        l_master = []; t_ind = self.gettierindex(t_ind)
+        ls = len(self.segments)
+        if t_ind < 0:
+            return []
+        if not l_ind:
+            for a in range(ls):
+                l_ind.append(a)
+        
+            # Tier variables
+            ## We get the parents
+        ptier = self; self.checkparenting(t_ind)
+        l_parent = []; ld_parent = []; o_ind = t_ind; index = self.pindex
+        while ptier.pindex >= 0:
+            ptier = self.trans.tiers[index]; ptier.checkparenting(index)
+                # dictionary
+            ld_parent.append({})
+            for a in range(len(ptier)):
+                ld_parent[-1][ptier.segments[a].id] = a
+                # tier
+            l_parent.append((index,o_ind))
+            o_ind = index; index = ptier.pindex
+            ## We get the children
+        l_struct = self.getallchildren(1); l_child = []; ld_child = []
+        if l_struct:
+            for tuple in l_struct:
+                c_ind = tuple[0]; ctier = self.trans.tiers[c_ind]
+                ctier.checkparenting(c_ind)
+                    # dictionary
+                ld_child.append({})
+                for a in range(len(ctier)):
+                    ref = ctier.segments[a].ref
+                    if ref in ld_child[-1]:
+                        ld_child[-1][ref].append(a)
+                    else:
+                        ld_child[-1][ref] = [a]
+                    # tier
+                l_child.append((c_ind,ctier.pindex))
+            # We fill the segments
+        for s_ind in l_ind:
+            if s_ind < 0 or s_ind >= ls:
+                continue
+            l_master.append([]); seg = self.segments[s_ind]
+            ref = seg.ref; o_ind = s_ind
+                # Parents
+            for a in range(len(l_parent)):
+                ps_ind = ld_parent[a].get(ref,-1)
+                if ps_ind < 0:
+                    break
+                l_master[-1].append((l_parent[a][0],l_parent[a][1],
+                                     [ps_ind],o_ind))
+                ref = self.trans.tiers[l_parent[a][0]] \
+                                .segments[ps_ind].ref
+                o_ind = ps_ind
+            l_master[-1].reverse()
+                # Main tier
+            l_master[-1].append((t_ind,t_ind,[s_ind],s_ind))
+                # Children
+            if not l_child:
+                continue
+            l_ids = [(t_ind,t_ind,[s_ind])]
+            l_temp = []; l_cur = l_ids[0]
+            for a in range(1,len(l_child)):
+                c_ind = l_child[a][0]; ctier = self.trans.tiers[c_ind]
+                    # We need the correct parent tier
+                if not ctier.pindex == l_cur[0]:
+                    check = False
+                    for b in range(len(l_ids)-1,0,-1):
+                        if ctier.pindex == l_ids[b][0]:
+                            check = True; l_cur = l_ids[b]; break
+                        if check:
+                            break
+                    if not check: # wut
+                        continue
+                    # We find the segments
+                for ss_ind in l_cur[2]:
+                    id = self.trans.tiers[l_cur[0]] \
+                                   .segments[ss_ind].id
+                    if id in ld_child[a]:
+                        l_temp = l_temp + ld_child[a][id]
+                    # We update the reference segments
+                l_master[-1].append((c_ind,ctier.pindex,l_temp.copy(),ss_ind))
+                l_ids.append((c_ind,ctier.pindex,l_temp.copy()))
+                l_cur = l_ids[-1]; l_temp.clear()
+            # Clearing lists
+        l_ind.clear(); l_parent.clear(); l_child.clear()
+        ld_parent.clear(); ld_child.clear()
+        return l_master
+    def getallchildren(self,mode=1,index=-1):
+        """Expands the 'children' list to all sub-children.
+        ARGUMENTS:
+        - 'mode'    :   '0' for level order
+                        '1' for linear order
+        - 'index'   :   this tier's index
+        RETURNS:
+        - A list of tuples (tier_index, parenttier_index, list_childtierindex)
+        Each tuple has the tier index 't_ind', parent tier index and 
+        the list of child tier indexes.
+        /!\ The list contains the tier itself!"""
+        
+            # Variables
+        index = self.gettierindex(index)
+            # Mode 0: level order
+        if mode == 0:
+                # Variables
+            l_struct = [(index,self.pindex,[self.children])]
+            l_children = self.children; l_temp = []
+                # We cycle through the children
+            while l_children:
+                for a in l_children:
+                    ctier = self.trans.tiers[a]; ctier.checkparenting(index)
+                    if ctier.pindex < 0:
+                        continue
+                    l_struct.append((a,ctier.pindex,[ctier.children]))
+                    l_temp = l_temp + ctier.children
+                l_children = l_temp.copy(); l_temp.clear()
+            # Mode 2: linear order
+        elif mode == 1:
+            l_struct = [(index,self.pindex,[self.children])]
+            for ind in self.children:
+                ctier = self.trans.tiers[ind]
+                if not ctier.children:
+                    l_struct.append((ind,index,[]))
+                else:
+                    l_struct = l_struct + ctier.getallchildren(1,ind)
+        return l_struct
+        # Function to kind of check the tier
+    def checksegment(self,mode=0):
         """Simply recreates the whole list of segments in mode 0."""
         l_trans = []
         for seg in self.segments:
             l_trans.append(seg)
         self.segments.clear()
-        for seg in l_trans:
-            self.addsegment(-1, seg.start, seg.end, seg.content, seg.id, seg.ref,
-                            seg.unit, seg.tier, 0)
-            self.segments[-1].pangloss = seg.pangloss.copy()
-            self.segments[-1].notes = seg.notes.copy()
-            self.segments[-1].metadata = seg.metadata.copy()
+        if mode == 0:
+            for seg in l_trans:
+                self.addsegment(-1, seg.start, seg.end, seg.content,
+                                seg.id, seg.ref,seg.unit, seg.tier, 0)
+                self.segments[-1].pangloss = seg.pangloss.copy()
+                self.segments[-1].notes = seg.notes.copy()
+                self.segments[-1].metadata = seg.metadata.copy()
+        elif mode == 1:
+            for seg in l_trans:
+                if not seg.unit:
+                    continue
+                self.addsegment(-1, seg.start, seg.end, seg.content,
+                                seg.id, seg.ref,seg.unit, seg.tier)
+                self.segments[-1].pangloss = seg.pangloss.copy()
+                self.segments[-1].notes = seg.notes.copy()
+                self.segments[-1].metadata = seg.metadata.copy()
         l_trans.clear()
+        # Functions to check the tier
+    def checkparenting(self,index=-1):
+        """Checks the tier's parent/pindex and that parent tier's child.
+        ARGUMENT:
+        - 'index'   :   tier index
+        RETURNS: '-1' if not a valid index
+                 '0' if no parent
+                 '1' otherwise."""
+            # Get the tier index
+        index = self.gettierindex(index)
+        if index < 0:
+            self.pindex = -1; return -1
+            # Checks parent/pindex
+        check = True; lt = len(self.trans)
+            # By obviousness
+        if self.pindex < 0 and not self.parent:
+            check = False
+            # By index
+        elif self.pindex >= 0 and self.pindex < lt:
+            if not self.parent:
+                self.parent = self.trans.tiers[self.pindex].name
+                # The tier name still prevails
+            elif not self.trans.tiers[self.pindex].name == self.parent:
+                check = False
+                for a in range(len(self.trans.tiers)):
+                    if self.trans.tiers[a].name == self.parent:
+                        self.pindex = a; check = True; break
+                if check == False:
+                    self.parent = self.trans.tiers[self.pindex].name
+                    check = True
+            # By name
+        elif self.parent:
+            check = False
+            for a in range(len(self.trans.tiers)):
+                if self.trans.tiers[a].name == self.parent:
+                    self.pindex = a; check = True; break
+            # By children
+            ## It's absurd but just in case
+        else:
+            check = False; index = self.pindex
+            for a in range(len(self.trans.tiers)):
+                ptier = self.trans.tiers[a]
+                if index in ptier.children:
+                    if check == False:
+                        ptier.children.remove(self.pindex)
+                        ptier.addchild(index)
+                        tier.pindex = a; tier.parent = ptier.name
+                        check = True; break
+        
+            # We stop if no parent
+        if not check:
+                # We clean the other tiers' children just in case
+            if self.pindex >= 0:
+                for ptier in self.trans.tiers:
+                    if self.pindex in ptier.children:
+                        ptier.children.remove(self.pindex)
+            self.parent = ""; self.pindex = -1
+            return 0
+
+            # We check the parent tier's children
+        if index not in self.trans.tiers[self.pindex].children:
+            self.trans.tiers[self.pindex].addchild(index)
+        return 1
+    def checkids(self,**args):
+        """Checks all the ids against that of the parent tier"""
+        
+            # Parenting must be checked
+        if args.get('checkparenting',False):
+            self.checkparenting()
+        clean = args.get('clean',False)
+            # Other checks
+        if (not self.trans) or (not self.parent):
+            if clean:
+                for seg in self.segments:
+                    seg.ref = ""
+            return False
+        elif not self.segments:
+            return True
+            # We get the parent
+        ptier = self.trans.tiers[self.pindex]
+        if not ptier.segments:
+            if clean:
+                for seg in self.segments:
+                    seg.ref = ""
+            return False
+        d_ref = {}
+        for seg in ptier:
+            d_ref[seg.id] = seg
+            # We check
+        check = True
+        for seg in self:
+            if (not seg.ref) or (seg.ref not in d_ref):
+                if clean:
+                    for seg in self.segments:
+                        seg.ref = ""
+                return False
+        return True
+    def checktimestamps(self,**args):
+        """Checks all the timestamps for positive linear values.
+        RETURNS: a tuple (check_time,list,list)
+        Each list has segment indexes: the first is for negative boundaries,
+        the second for 'overlapping' boundaries."""
+        
+            # We check
+        end = -1.; l_neg = []; l_faults = []
+        for a in range(len(self)):
+            seg = self.segments[a]
+            if seg.start < 0. or seg.end < 0.:
+                l_neg.append(a)
+            elif seg.start < end or seg.end < end:
+                l_faults.append(a)
+            if seg.end > end:
+                end = seg.end
+            # We clean
+            ## I have yet to define what cleaning would mean
+        check = True
+        if l_neg or l_faults:
+            check = False
+        return (check,l_neg,l_faults)
+        # Accessory functions
     def reclaim(self):
         """Just in case there was a doubt as to who owns those segments."""
         for seg in self.segments:
@@ -262,55 +656,21 @@ class Tier:
         for seg in self.segments:
             l_content.append(seg.content)
         return l_content 
-    def getAllChildren(self,mode=0):
-        """Expands the 'children' list to all sub-children."""
-        
-            # Mode 0: list of levels, with lists per parent tier, with lists of children
-        if mode == 0:
-            l_struct = [[self.children]]; test = True
-            while test:
-                l_struct.append([]); test = False
-                for struct in l_struct[-2]:
-                    if not struct:
-                        l_struct[-1].append([])
-                    for a in struct:
-                        if self.trans.tiers[a].children:
-                            l_struct[-1].append(self.trans.tiers[a].children)
-                            test = True
-                        else:
-                            l_struct[-1].append([])
-                # Mode 1: list of parent tiers, with a list of children tiers in order
-                ## This is mainly for Pangloss
-        else:
-            l_struct = []; temp = []
-            for i in self.children:
-                if not self.trans.tiers[i].children:
-                    l_struct.append(i)
-                else:
-                    temp.append(i)
-            Ctier = None; l_child = [temp.copy()]; l_pos = [0]; l_max = [len(l_child[-1])]
-            while True:
-                while l_pos[-1] >= l_max[-1]:
-                    l_child.pop(); l_pos.pop(); l_max.pop()
-                    if not l_child:
-                        break
-                if not l_child:
-                    break
-                ind = l_child[-1][l_pos[-1]]; l_pos[-1] += 1
-                l_struct.append(ind)
-                Ctier = self.trans.tiers[ind]
-                if Ctier.children:
-                    temp.clear()
-                    for i in Ctier.children:
-                        if not self.trans.tiers[i].children:
-                            l_struct.append(i)
-                        else:
-                            temp.append(i)
-                    l_child.append(temp.copy())
-                    l_pos.append(0); l_max.append(len(l_child[-1]))
-            
-        return l_struct
-
+    
+def getit(dict,list,keyname):
+    """Support function for 'getall' methods."""
+        # Nothing to add
+    if not list:
+        return dict
+        # Only one element
+    if len(list) == 1:
+        dict[keyname] = list[0]
+        # More than one element
+    else:
+        count = 0
+        for val in list:
+            dict[keyname+str(count)] = val; count += 1
+    return dict
 class Corpus:
     """Support container for 'Metadata'.
     Iterates over its 'open' dictionary."""
@@ -340,6 +700,32 @@ class Corpus:
         copy.ownership = self.ownership.copy()
         copy.open = self.open.deepcopy()
         return copy
+    def getall(self,open=True):
+        """Returns a dictionary of all corpus metadata.
+        Prefixes every key with 'c_'."""
+        
+            # Variables
+        d_md = {}; count = 0
+            # names / types / ownerships
+        getit(d_md,self.name,'c_name')
+        getit(d_md,self.type,'c_type')
+        getit(d_md,self.ownership,'c_ownership')
+            # versions
+        for a in range(len(self.version)):
+            l_vers = self.version[a]
+            if a == 0:
+                getit(d_md,l_vers,'c_vers')
+            elif a == 1:
+                getit(d_md,l_vers,'c_versDate')
+            elif a == 2:
+                getit(d_md,l_vers,'c_versAuth')
+            elif a == 3:
+                getit(d_md,l_vers,'c_versLoc')
+            # Open
+        if open:
+            for key,value in self.open.items():
+                d_md['c_'+key] = value
+        return d_md
 class Record:
     """Support container for 'Metadata'.
     Iterates over its 'open' dictionary."""
@@ -371,6 +757,33 @@ class Record:
             copy.version.append(v)
         copy.open = self.open.deepcopy()
         return copy
+    def getall(self,open=True):
+        """Returns a dictionary of all corpus metadata.
+        Prefixes every key with 'c_'."""
+        
+            # Variables
+        d_md = {}; count = 0
+            # names / types / ownerships
+        getit(d_md,self.name,'r_name')
+        getit(d_md,self.url,'r_url')
+        getit(d_md,self.type,'r_type')
+        getit(d_md,self.quality,'r_quality')
+            # versions
+        for a in range(len(self.version)):
+            l_vers = self.version[a]
+            if a == 0:
+                getit(d_md,l_vers,'r_vers')
+            elif a == 1:
+                getit(d_md,l_vers,'r_versDate')
+            elif a == 2:
+                getit(d_md,l_vers,'r_versAuth')
+            elif a == 3:
+                getit(d_md,l_vers,'r_versLoc')
+            # Open
+        if open:
+            for key,value in self.open.items():
+                d_md['r_'+key] = value
+        return d_md
 class Transcript:
     """Support container for 'Metadata'.
     Iterates over its 'open' dictionary."""
@@ -406,6 +819,38 @@ class Transcript:
         copy.ownership = self.ownership.copy()
         copy.open = self.open.deepcopy()
         return copy
+    def getall(self,open=True):
+        """Returns a dictionary of all corpus metadata.
+        Prefixes every key with 'c_'."""
+        
+            # Variables
+        d_md = {}; count = 0
+            # names / types / ownerships
+        getit(d_md,self.name,'t_name')
+        getit(d_md,self.url,'t_url')
+        getit(d_md,self.type,'t_type')
+        getit(d_md,self.ownership,'t_ownership')
+            # versions
+        for a in range(len(self.version)):
+            l_vers = self.version[a]
+            if a == 0:
+                getit(d_md,l_vers,'t_vers')
+            elif a == 1:
+                getit(d_md,l_vers,'t_versDate')
+            elif a == 2:
+                getit(d_md,l_vers,'t_versAuth')
+            elif a == 3:
+                getit(d_md,l_vers,'t_versLoc')
+            #Format
+        if self.format:
+            d_md['t_format'] = self.format
+        if self.format_version:
+            d_md['t_formatVers'] = self.format_version
+            # Open
+        if open:
+            for key,value in self.open.items():
+                d_md['t_'+key] = value
+        return d_md
 class Speaker:
     """Support container for 'Metadata'.
     Iterates over its 'open' dictionary."""
@@ -636,32 +1081,31 @@ class Metadata:
         
             # Get the right dictionary
         self.getMD(forMD).open[key] = value
-    
+    def getall(self):
+        """Returns a dictionary of all metadata (minus speakers).
+        Prefixes keys with 'c_','r_' and 't_'
+        for Corpus, Recording, Transcript."""
+        d_md = {}
+        d_md.update(self.corpus.getall())
+        d_md.update(self.recording.getall())
+        d_md.update(self.transcript.getall())
+        return d_md
+   
 class Transcription:
     """Class containing the metadata and a list of Tier classes.
     
-    When iterated upon, returns each tier in 'self.tiers'.
-    'addtier'/'removetier'  : should provide a safe way to manipulate tiers.
-    'settimetable'          : an ordered list of timestamps is memory-heavy
-                              so it is not created automatically.
-    'setchildtime'          : if the structure is in place, this will give
-                              proper timestamps to all segments.
-    'setstructure'          : sets the tier parents, pindexes and children,
-                              and for each segment their ref(erent).
-                              /!\ It doesn't use timestamps to guess parents
-                                  and refs
-    Other methods are anecdotal."""
+    When iterated upon, returns each tier in 'self.tiers'."""
     def __init__(self, name="", start =-1., end =-1.):
         self.name = name
         self.start = start
         self.end = end
-        self.tiers = []
-        self.dictionary = None # Elan and Pangloss integrate dictionaries
-        self.metadata = Metadata()
+        self.tiers = []             # list of Tier objects
+        self.dictionary = None      # Elan and Pangloss integrate dictionaries
+        self.metadata = Metadata()  # Metadata object
             # Complements
-        self.notes = [] # Pangloss
-        self.timetable = [] # see 'settimetable'
-        self.format = "" # where was it imported from
+        self.notes = []             # Pangloss notes
+        self.timetable = []         # see 'settimetable'
+        self.format = ""            # where it was imported from
     
     def __len__(self):
         return len(self.tiers)
@@ -685,6 +1129,7 @@ class Transcription:
         copy.format = self.format
         return copy
     
+        # Add content
     def addtier(self, name="", start=-1., end=-1., insert=-1):
         """Creates and adds the tier.
         If 'insert>=0', inserted at index 'insert'; otherwise appended."""
@@ -715,41 +1160,7 @@ class Transcription:
                     del ctier
                     atier.children.pop(todel)
         self.tiers.pop(ind)
-
-    def settimetable(self, adjust=0):
-        """Creates a list of boundaries ordered (smallest to biggest) and without duplicates
-        adjust=1 to also adjust the Tier's boundaries"""
-    
-        self.timetable.clear()
-        for tier in self.tiers:
-            #if tier.truetype and (tier.truetype != "time"):
-            #    continue
-            count = 0
-            for segment in tier.segments:
-                count += 1
-                start = segment.start
-                if start not in self.timetable:
-                    if (not self.timetable) or (start > self.timetable[-1]):
-                        self.timetable.append(segment.start)
-                    else:
-                        for t in self.timetable:
-                            if start < t:
-                                self.timetable.insert(self.timetable.index(t), start)
-                                break
-                end = segment.end
-                if end not in self.timetable:
-                    if (not self.timetable) or (self.timetable[-1] < end):
-                        self.timetable.append(segment.end)
-                    else:
-                        for t in self.timetable:
-                            if end < t:
-                                self.timetable.insert(self.timetable.index(t), end)
-                                break
-        if adjust == 1 and self.timetable:
-            for time in self.timetable:
-                if time >= 0:
-                    self.start = time; break
-            self.end = self.timetable[-1]
+        # Basic functions
     def uptime(self, mode=0):
         """If you don't want to create a timetable but still adjust the
         Trans's boundaries.
@@ -757,11 +1168,11 @@ class Transcription:
         themselves"""
         if mode == 0:
             for tier in self.tiers:
-                for segment in tier.segments:
-                    start = segment.start
+                for seg in tier.segments:
+                    start = seg.start
                     if start >= 0. and (self.start > start or self.start < 0.):
                         self.start = start
-                    end = segment.end
+                    end = seg.end
                     if self.end < end:
                         self.end = end
         elif mode == 1:
@@ -794,6 +1205,7 @@ class Transcription:
         
         for tier in self:
             tier.checksegment()
+        # See tiers' 'hash' functions
     def sethash(self, l_tiers=[]):
         """Brute-force 'sethash' the tier indexes in l_tiers.
         We try to alter as little of the transcription as necessary."""
@@ -805,10 +1217,49 @@ class Transcription:
             tier = self.tiers[a]
             tier.checksegment()
             tier.sethash()
-    def setchildtime(self,l_tiers=[]):
+        # Tiers structure
+    def settimetable(self, adjust=0,**args):
+        """Creates a list of boundaries ordered (smallest to biggest)
+        and without duplicates.
+        adjust=1 to also adjust the Tier's boundaries"""
+    
+        check = args.get('truetype',True)
+        self.timetable.clear()
+        for tier in self.tiers:
+            if check and tier.truetype and not tier.truetype == "time":
+                continue
+            count = 0
+            for segment in tier.segments:
+                count += 1
+                start = segment.start
+                if start not in self.timetable:
+                    if (not self.timetable) or (start > self.timetable[-1]):
+                        self.timetable.append(segment.start)
+                    else:
+                        for t in self.timetable:
+                            if start < t:
+                                self.timetable.insert(self.timetable.index(t), 
+                                                      start)
+                                break
+                end = segment.end
+                if end not in self.timetable:
+                    if (not self.timetable) or (self.timetable[-1] < end):
+                        self.timetable.append(segment.end)
+                    else:
+                        for t in self.timetable:
+                            if end < t:
+                                self.timetable.insert(self.timetable.index(t), end)
+                                break
+        if adjust == 1 and self.timetable:
+            for time in self.timetable:
+                if time >= 0:
+                    self.start = time; break
+            self.end = self.timetable[-1]
+    def setchildtime(self,l_tiers=[],**args):
         """For ELAN, gives "assoc" and "subd" tiers actual time boundaries."""
         
-        self.setstructure()
+        if args.get('setstructure',True):
+            self.setstructure(setchildtime=False)
             # We set up a list 'l_children' containing for each parent
             #  the list of children indexes (in order)
         l_children = []; l_parent = []
@@ -816,12 +1267,12 @@ class Transcription:
             for tier in self.tiers:
                 if tier.pindex < 0:
                     l_parent.append(tier)
-                    l_children.append(tier.getAllChildren(1))
+                    l_children.append(tier.getallchildren(1))
         else:
             for a in range(len(l_tiers)):
                 tier = self.tiers[a]
                 l_parent.append(tier)
-                l_children.append(tier.getAllChildren(1))
+                l_children.append(tier.getallchildren(1))
 
             # We fill from parent first
         l_count = []; l_segs = []
@@ -851,8 +1302,8 @@ class Transcription:
         
             # We fill from the children next
         for list in l_children:
-            for a in list:
-                ptier = self.tiers[a]
+            for tuple in list:
+                ptier = self.tiers[tuple[0]]
                 l_count.clear(); l_segs.clear(); lc = len(ptier.children)
                 for b in ptier.children:
                     l_count.append(0)
@@ -876,80 +1327,210 @@ class Transcription:
                         l_segs.clear()
                 ptier.checktime()
         l_parent.clear(); l_children.clear()
-    def setstructure(self,mode=0,l_tiers=[], **args):
-        """Attributes parents, children, levels, ids and refs to tiers.
+    def checkstructure(self,l_tiers=[],**args):
+        """Checks the tiers' structure.
+        1. Ensures 'parent'-'pindex'-'children' are synched
+        2. Returns False if a single ID or timestamp is missing
         
-        'mode'      : '0' - relies on existing refs and parents.
-                      '1' - relies on time boundaries.
-        'l_tiers'   : the set of tiers on which to operate.
-                      /!\ A limited set can break the transcription.
-        'ids'       : a string for ids, coupled with an incremented int.
-                      if empty, old ids are used (including empty ids).
-        This is to automatically get the structure. To be distinguished from
-        a manual structuration."""
+        ARGUMENTS:
+        - l_tiers   :     list of tiers to check
+        - clean     :     clean invalid IDs/timestamps
+        Note: invalid timestamps are kept if no valid IDs are available
+        Note: checks parents/children beyond the set of tiers
+        
+        RETURNS:
+        - a tuple (tuple,list)
+        - 'tuple' contains (type,ref_check,time_check) in string, bool, bool
+        - 'l_return' contains a list of tuples
+          (type,ref_check,time_check,l_neg,l_faults)
+        The 'tuple' checks the whole list; 'l_return' checks each tier.
+        'l_neg' is indexes of segments with negative boundaries.
+        'l_faults' is indexes of segments with 'overlapping' boundaries.
+        Note: 'type' is the tier's truetype, updated by this function.
+        Note: 'type' for 'tuple' can have the value "mixed"."""
         
             # Variables
-        ids = "a"
-        if "ids" in args:
-            ids = args['ids']
+        tuple = ("",False,False); l_return = []
+        setchildtime = args.get('setchildtime',True)
+        clean = args.get('clean',False)
             # If no tier is selected, we get all tiers
         if not l_tiers:
             for a in range(len(self.tiers)):
                 l_tiers.append(a)
+            # Separate check for parent/pindex/children
+        l_parent = []
+        for ind in l_tiers:
+            self.tiers[ind].checkparenting(ind)
+        if setchildtime:
+            self.setchildtime(l_tiers,setstructure=False)
+            # Checks the ids and timestamps
+        for ind in l_tiers:
+            tier = self.tiers[ind]
+                # IDS
+            ref_check = tier.checkids(clean=clean)
+                # TIMESTAMPS
+            time_check,l_neg,l_faults = tier.checktimestamps()
+                # cleaning
+                ## Note: We don't clean timestamps if there are no ids
+            if clean and ref_check and not time_check:
+                for seg in tier:
+                    seg.start = -1.; seg.end = -1.
+                # TYPE
+                ## Again, default to time even if flawed
+            if tier.truetype == "ref" and not ref_check:
+                tier.truetype = "time"
+            elif tier.truetype == "time" and not time_check:
+                if ref_check:
+                    tier.truetype = "ref"
+                # List of checks
+            l_return.append((tier.truetype,ref_check,time_check,
+                             l_neg,l_faults))
+            # Final return value
+        ref_check = True; time_check = True; type = ""
+        for tuple in l_return:
+                # TYPE
+            if not type:
+                type = tuple[0]
+            elif not type == tuple[0]:
+                type = "mixed"
+                # IDS
+            if ref_check and not tuple[1]:
+                ref_check = False
+                # TIMESTAMPS
+            if time_check and not tuple[2]:
+                time_check = False
+        tuple = (type,ref_check,time_check)
+        return (tuple,l_return)
+    def setstructure(self,mode=0,l_tiers=[], **args):
+        """Attributes parents, children, levels, ids and refs to tiers.
         
-            ## Mode = 1: using timestamps
-            ## /!\ Unfinished
+        ARGUMENTS:
+        'mode'      : '0' - relies purely on the preexisting structure.
+                      '1' - relies also on timestamps.
+        'l_tiers'   : the list of tiers on which to operate.
+        'ids'       : a string for ids, coupled with an incremented int.
+        'clean'     : boolean, whether to clean the previous structure
+        
+        RETURNS:
+        - 0/1 for success/failure
+        This is to automatically get the structure. To be distinguished from
+        a manual structuration."""
+        
+            # Variables
+        ids = args.get('ids',"a")
+        setchildtime = args.get('setchildtime',True)
+        clean = args.get('clean',False)
+            # If no tier is selected, we get all tiers
+        if not l_tiers:
+            for a in range(len(self.tiers)):
+                l_tiers.append(a)
+            # We get checking values
+            ## 'setchildtime' adds timestamps where possible
+        g_check, gl_check = self.checkstructure(l_tiers,clean=clean,
+                                                setchildtime=setchildtime)
+            # If clean, we clean all structure
+        if clean:
+            for a in l_tiers:
+                self.tiers[a].parent = ""; self.tiers[a].pindex = -1
+
+            # Mode = 1: we add to the structure using timestamps
         if mode == 1:
-            l_parent = l_tiers.copy(); l_children = []; l_pos = []
-            start = -1.; end = -1.
-            while l_parent:
-                lp = len(l_parent); l_pos.clear()
-                for a in range(lp):
-                    l_pos.append(0)
-                while True:
+            l_struct = []; l_ind = []; l_ti = []
+            l_segs = []; l_pos = []; l_max = []; l_acc = []
+                # We only keep 'time' tiers
+            for a in l_tiers:
+                if gl_check[a][2] and self.tiers[a].segments:
+                    l_ind.append(a); l_ti.append(self.tiers[a])
+                    l_struct.append([]); l_acc.append(0)
+                    l_segs.append(l_ti[-1].segments[0])
+                    l_pos.append(0); l_max.append(len(l_ti[-1]))
+                # l_struct is actually a matrix
+                ## list of lists of integers
+            for struct in l_struct:
+                for a in l_ind:
+                    struct.append(0)
+            pl = len(l_ti)
+                # We compare segs
+            while True:
+                    # Step 1: we get the earliest segment
+                seg = None; ind = -1; start = -1.
+                for a in range(len(l_segs)):
+                    sseg = l_segs[a]
+                    if sseg == None:
+                        continue
+                    if start < 0 or sseg.start < start:
+                        seg = sseg; start = sseg.start; ind = a
+                    # Break the 'while' loop if no segment is left
+                if seg == None:
                     break
-            
-                    
-                
-                    
-            return
-            
-            ## Mode = 0: using preexisting refs
+                    # Step 2: we compare that segment with every other
+                struct = l_struct[ind]
+                for a in range(len(l_segs)):
+                        # If the structure already failed, why bother
+                    if (struct[a] < 0 or l_segs[a] == None or a == ind):
+                        continue
+                    rseg = l_segs[a]
+                        # Discrepancy, no structure between them
+                    if (seg.start < rseg.start or seg.end > rseg.end):
+                        struct[a] = -1; continue
+                        # End of unit for that comparison
+                    elif seg.end == rseg.end:
+                        if l_acc[a] > struct[a]:
+                            struct[a] = l_acc[a]
+                        l_acc[a] = 0
+                        # Another matching unit
+                    else:
+                        l_acc[a] += 1
+                    # Step 3: we increment that tier's segment
+                l_pos[ind] += 1
+                if l_pos[ind] >= l_max[ind]:
+                    l_segs[ind] = None
+                else:
+                    l_segs[ind] = l_ti[ind].segments[l_pos[ind]]
+                # We now have filled a matrix 'l_struct'
+                ## Time to get the best result for each tier
+                ## We'll also take that occasion to give them ids
+            count = 0; pos = 0
+            for a in range(len(l_struct)):
+                    # Get the smallest positive result
+                    ## This is the trick to seek the closest parent
+                s = -1; ind = -1
+                for b in range(len(l_struct[a])):
+                    if s < 0 or l_struct[a][b] < s:
+                        s = l_struct[a][b]; ind = b
+                    # That's our parent
+                if ind >= 0:
+                    tier = l_ti[a]; rtier = l_ti[ind]
+                    tier.parent = rtier.name; tier.pindex = ind
+                    rtier.addchild(a); pos = 0; pl = len(tier)
+                        # We add ids because we can
+                    for seg in rtier:
+                        seg.id = ids+str(count); count += 1
+                        for b in range(pos,pl):
+                            cseg = tier.segments[b]; cseg.ref = seg.id
+                            cseg.id = ids.str(count); count += 1
+                            if cseg.end == seg.end:
+                                pos = b+1; break
         
+            # Timestamps or not, we renew the ids
+            ## This also sets the tier levels
+            ## We get the parents
         l_parent = []; test = 0
-            # We set the children
         for a in l_tiers:
-            self.tiers[a].children.clear()
-        for a in l_tiers:
-            tier = self.tiers[a]
-            if tier.parent:
-                for b in range(len(self.tiers)):
-                    if tier.parent == self.tiers[b].name:
-                        self.tiers[b].children.append(a)
-                        tier.pindex = b
-                        test = 1; break
-                if test == 0:
-                    tier.parent = ""; tier.pindex = -1
-                    tier.truetype = "time"
-                    l_parent.append(a); test = 0
-            else:
-                tier.pindex = -1; tier.truetype = "time"
+            if not self.tiers[a].parent:
                 l_parent.append(a)
-            # We set the ids and refs
+            ## We set the ids and refs
         l_count = []; l_temp = []; count = 0; level = 0
         while l_parent:
             for a in l_parent:
                 ptier = self.tiers[a]; ptier.level = level
-                l_count.clear()
+                l_count.clear(); lc = len(ptier.children)
                 for b in ptier.children:
                     l_count.append(0)
                     l_temp.append(b)
                 for pseg in ptier:
-                    if not ids:
-                        id = pseg.id
-                    else:
-                        id = ids+str(count); count += 1
-                    for b in range(len(ptier.children)):
+                    id = ids+str(count); count += 1
+                    for b in range(lc):
                         child = self.tiers[ptier.children[b]]; test = 0
                         for c in range(l_count[b],len(child)):
                             seg = child.segments[c]
@@ -960,8 +1541,10 @@ class Transcription:
                             elif test == 1:
                                 l_count[b] = c; break
                     pseg.id = id
-            l_parent = l_temp.copy(); l_temp.clear();level += 1
+            l_parent = l_temp.copy(); l_temp.clear(); level += 1
         l_tiers.clear()
+        return 0
+        # Get information
     def getparents(self):
         """Provides a list of parent tiers and their children."""
         
@@ -970,8 +1553,34 @@ class Transcription:
             tier = self.tiers[a]
             if tier.pindex < 0:
                 l_parents.append(a)
-                l_struct.append(tier.getAllChildren(1))
+                l_struct.append(tier.getallchildren(1))
         return (l_parents, l_struct)
+    def getsegtree(self,l_segs=[]):
+        """Get all the parent and children ids of a given segment.
+        ARGUMENTS:
+        - 'l_segs'      :   list of tuples (tier_index,list_segindex).
+        RETURNS:
+        - A list of lists of lists [ tier [ segment [ (tuple) ] ] ].
+        Where each tuple contains (tier_index,p/ctier_index,
+                                   list_segindex,p/cseg_index).
+        See the Segment equivalent method for details."""
+        
+            # Variables
+        l_master = []
+            # We simply call the Tier method
+        for tuple in l_segs:
+            t_ind = tuple[0]
+            if t_ind < 0 or t_ind > len(self.tiers):
+                continue
+            tier = self.tiers[t_ind]; lt = len(tier)
+                # Quick check
+            l_copy = []
+            for ind in tuple[1]:
+                if ind >= 0 and ind < lt:
+                    l_copy.append(ind)
+            l_master.append(tier.getsegtree(t_ind,l_copy)); l_copy.clear()
+        return l_master
+        
     def iterseg(self,l_tiers=[]):
         """Creates a generator to provide the segments in time order.
         By default, does that for all parent tiers.
@@ -1026,6 +1635,13 @@ class Transcription:
                 except IndexError:
                     l_max[cur] = 0; l_segs[cur] = None
     def find(self,pattern,mode=0,index=0):
+        """Find a tier by name.
+        ARGUMENTS:
+        - 'pattern'     :   the name to be found
+        - 'mode'        :   '0' re, '1-4' starts-in-ends-equals
+        - 'index'       :   starting index in the tier list.
+        RETURNS:
+        - a tuple (tier_index,tier)."""
         if mode == 0:
             try:
                 import re
@@ -1052,6 +1668,7 @@ class Transcription:
                 if self.tiers[a].name == pattern:
                     return (a,self.tiers[a])
         return (-1,None)
+        # Speakers
     def tierSpeakers(self):
         """Checks tier.metadata for 'speaker', then provides the list.
         Returns a list of tuples (speaker_name, list_of_tier_indexes)."""
@@ -1102,16 +1719,17 @@ class Transcription:
             for tier in l_spk:
                 self.metadata.addspeaker(tier.name)
                 tier.metadata['speaker'] = tier.name
-                l_child = tier.getAllChildren(1)
+                l_child = tier.getallchildren(1)
                 for cind in l_child:
                     self.tiers[cind].metadata['speaker'] = tier.name
                     self.tiers[cind].type = "a"  
+        # Deprecated
     def clear(self,mode=0):
         if mode == 0:
             self.timetable.clear()
         else:
             self.name = ""; self.start = 0.; self.end = 0.
-            del self.metadata
+            self.metadata = Metadata()
             self.tiers.clear()
             self.dictionary.clear()
             self.notes.clear()

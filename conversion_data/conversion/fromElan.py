@@ -13,7 +13,8 @@ def escape(data):
 def getFormat(f,trans):
     """Support function to get the transcription's name and format."""
         # Name
-    trans.name = os.path.splitext(f)
+    trans.name = os.path.split(f)[1]
+    trans.name = os.path.splitext(trans.name)[0]
     trans.metadata.transcript.name = [trans.name]
         # Format
     trans.format = "elan"
@@ -185,6 +186,7 @@ def fromElan(f,**args):
         # **args is for "encoding", which isn't used due to the xml library
     
     trans = Transcription()
+    setchildtime = args.get('setchildtime',False)
     timeorder = {}
     root = None
     
@@ -211,7 +213,8 @@ def fromElan(f,**args):
                 readFooter(trans,root)
                 root.clear()
         # I am tired of time errors
-    trans.setchildtime()
+    if setchildtime:
+        trans.setchildtime()
         # Transcription name and format
-    getFormat(f,trans)
+    getFormat(f,trans); trans.setstructure(setchildtime=False)
     return trans

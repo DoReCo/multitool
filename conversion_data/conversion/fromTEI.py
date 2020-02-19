@@ -15,7 +15,8 @@ def getFormat(f,trans):
     if trans.metadata.transcript.name:
         trans.name = trans.metadata.transcript.name[0]
     else:
-        trans.name = os.path.splitext(f)
+        trans.name = os.path.split(f)[1]
+        trans.name = os.path.splitext(trans.name)[0]
         trans.metadata.transcript.name = [trans.name]
         # Format
     trans.format = "tei"

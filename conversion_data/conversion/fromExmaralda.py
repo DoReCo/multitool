@@ -13,7 +13,8 @@ def getFormat(f,trans):
     """Support function to get the transcription's name and format."""
         # Name
     if not trans.name:
-        trans.name = os.path.splitext(f)
+        trans.name = os.path.split(f)[1]
+        trans.name = os.path.splitext(trans.name)[0]
     trans.metadata.transcript.name = [trans.name]
         # Format
     trans.format = "exmaralda"
@@ -119,7 +120,7 @@ def readTier(elem,trans,timeorder, count):
     
         # tier
         ## We don't check the speaker, category, type
-    trans.addtier(); tier = trans.tiers[-1]
+    trans.addtier(); tier = trans.tiers[-1]; tier.truetype = "time"
     for key, value in elem.attrib.items():
         if key == "display-name": 
             tier.name = value
@@ -150,8 +151,8 @@ def readTier(elem,trans,timeorder, count):
                 # segment metadata
             s_meta.clear()
             for e in el:
-                if (e.tag == "ud-information" and "attribute-name" in e.attrib and
-                    e.text):
+                if (e.tag == "ud-information" and
+                    "attribute-name" in e.attrib and e.text):
                     key = e.get("attribute-name"); value = e.text
                     s_meta[key] = value; el.remove(e)
                 # id and content
