@@ -2,18 +2,19 @@ from .Transcription import Transcription, Tier
 
 def escape(data):
     """Support function to replace xml>sax>saxutils."""
-    
     data = data.replace("&","&amp;").replace("\"","&quot;") \
-               .replace("'","&apos;").replace("<","&lt;").replace(">","&gt;")
+               .replace("'","&apos;").replace("<","&lt;") \
+               .replace(">","&gt;")
     return data
 
 def writeHOpen(file,trans):
     """Support support function to write user-defined metadata in the header."""
     
-        # I actually have no idea how to handle this...
-        # So for now it will remain empty
-        # Eventually the user should be able to choose
+        # Let us go with all 'transcription' open metadata
     
+    for key,value in trans.metadata.transcript.open.items():
+        file.write("\t\t<PROPERTY NAME=\"{}\">{}</PROPERTY>\n"
+                   .format(key,value))
     pass
 def writeHeader(file,trans):
     """Support function to write the header (and annotation document start)."""
@@ -28,12 +29,13 @@ def writeHeader(file,trans):
     if versions:
         author = versions[-1][2]; date = versions[-1][1]
     del versions
+    time_units = trans.metadata.recording.open.get('TIME_UNITS',"milliseconds")
     file.write("<ANNOTATION_DOCUMENT DATE=\"{}\" AUTHOR=\"{}\" FORMAT=\"{}\" "
                "VERSION=\"{}\" xmlns:xsi=\"http://www.w3.org/2001/"
                "XMLSchema-instance\" xsi:noNamespaceSchemaLocation=\""
                "http://www.mpi.nl/tools/elan/EAFv3.0.xsd\">\n\t<HEADER "
-               "MEDIA_FILE=\"{}\" TIME_UNITS=\"milliseconds\">\n"
-               .format(date,author,version,version,n_audio))
+               "MEDIA_FILE=\"{}\" TIME_UNITS=\"{}\">\n"
+               .format(date,author,version,version,n_audio,time_units))
         # We add the actual header's stuff
     url = ""; type = ""; count = 0; check = False
         # We get back our MEDIA_DESCRIPTORs oh yeah
@@ -69,9 +71,12 @@ def writeHeader(file,trans):
                     type = trans.metadata.recording.type[a]
                     file.write(" MIME_TYPE=\"{}\"".format(type))
                 file.write("/>\n")
+            # We really, really want a media descriptor, so... default
+        else:
+            file.write("\t\t<MEDIA_DESCRIPTOR MEDIA_URL=\"{}.wav\""
+                       " MIME_TYPE=\"audio/x-wav\"/>\n"
+                       .format(trans.name))
         # We get... everything else
-        ## Note: I'm not a masochist, so only 'corpus' and 'transcript' are in there
-        ## Note: We can only handle 'strings' here... for now
     writeHOpen(file,trans)
     file.write("\t</HEADER>")
 def writeTime(file,trans):
@@ -120,7 +125,7 @@ def writeRefSeg(file,trans,tier):
                 file.write(" PREVIOUS_ANNOTATION=\""+escape(prev)+"\"")
             if ext:
                 file.write(" EXT_REF=\""+escape(ext)+"\"")
-            file.write(">\n\t\t\t\t<ANNOTATION_VALUE>"+escape(content)
+            file.write(">\n\t\t\t\t<ANNOTATION_VALUE>"+content
                        +"</ANNOTATION_VALUE>\n\t\t\t</REF_ANNOTATION>"
                        "\n\t\t</ANNOTATION>\n")
 def writeTimeSeg(file,trans,tier,timeorder):
@@ -235,6 +240,8 @@ def toElan(f, trans, **args):
     
         # Encoding
     encoding = args.get('encoding',"utf-8")
+    settime = args.get('settimetable',True)
+    setstruct = args.get('setstructure',True)
         # We need a list of transcriptions
     if not args.get('multiple',False):
         trans = [trans]; f = [f]
@@ -242,7 +249,10 @@ def toElan(f, trans, **args):
     for a in range(len(trans)):
         tran = trans[a]; ff = f[a]
             # Complete information
-        tran.settimetable(1); tran.setstructure()
+        if settime:
+            tran.settimetable(1)
+        if setstruct:
+            tran.setstructure()
         with open(ff, 'w', encoding=encoding) as file:
             copy = ""
                 # XML head
