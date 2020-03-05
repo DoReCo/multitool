@@ -148,7 +148,7 @@ class Segment:
                 # We need the correct parent tier
             if not ctier.pindex == l_cur[0]:
                 check = False
-                for b in range(len(l_ids)-1,0,-1):
+                for b in range(len(l_ids)-1,-1,-1):
                     if ctier.pindex == l_ids[b][0]:
                         check = True; l_cur = l_ids[b]; break
                     if check:
@@ -370,9 +370,9 @@ class Tier:
         """Gets all the parent and children segments for those segments.
         ARGUMENTS:
         - 't_ind'   :   this tier's index
-        - 's_ind'   :   the list of segments (default all)
+        - 'l_ind'   :   the list of segments (default all)
         RETURNS:
-        - a list of lists of tuples
+        - a list of tuples
           (tier_index,p/ctier_index,list_segindex,p/cseg_index)
         See the Segment equivalent for more."""
         
@@ -443,7 +443,7 @@ class Tier:
                     # We need the correct parent tier
                 if not ctier.pindex == l_cur[0]:
                     check = False
-                    for b in range(len(l_ids)-1,0,-1):
+                    for b in range(len(l_ids)-1,-1,-1):
                         if ctier.pindex == l_ids[b][0]:
                             check = True; l_cur = l_ids[b]; break
                         if check:
@@ -1434,7 +1434,7 @@ class Transcription:
                 self.tiers[a].parent = ""; self.tiers[a].pindex = -1
 
             # Mode = 1: we add to the structure using timestamps
-        if mode == 1:
+        """if mode == 1:
             l_struct = []; l_ind = []; l_ti = []
             l_segs = []; l_pos = []; l_max = []; l_acc = []
                 # We only keep 'time' tiers
@@ -1511,7 +1511,7 @@ class Transcription:
                             cseg.id = ids.str(count); count += 1
                             if cseg.end == seg.end:
                                 pos = b+1; break
-        
+        """
             # Timestamps or not, we renew the ids
             ## This also sets the tier levels
             ## We get the parents
