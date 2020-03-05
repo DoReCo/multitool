@@ -310,8 +310,12 @@ class Tier:
         self.start = t_d
         self.end = t_i
     def checktime(self):
-        self.start = self.segments[0].start
-        self.end = self.segments[-1].end
+        if self.segments:
+            self.start = self.segments[0].start
+            self.end = self.segments[-1].end
+        else:
+            self.start = -1.
+            self.end = -1.
         # Functions to add content
     def addsegment(self, p=-1, start=-1., end=-1., cont="", id="", ref="",
                    unit=True, tier=None, mode=0):
@@ -1186,8 +1190,11 @@ class Transcription:
         """Adjusts each tier's first and last segment to match Transcriptions' start/end time
         mode: '0' to simply update the segment's boundary; '1' to create new segments"""
         for tier in self.tiers:
-            n_start = tier.segments[0].start
-            n_end = tier.segments[-1].end
+            if tier.segments:
+                n_start = tier.segments[0].start
+                n_end = tier.segments[-1].end
+            else:
+                continue
             if mode == 0:
                 if n_start > self.start:
                     tier.segments[0].start = self.start
