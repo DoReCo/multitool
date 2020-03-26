@@ -310,12 +310,8 @@ class Tier:
         self.start = t_d
         self.end = t_i
     def checktime(self):
-        if self.segments:
-            self.start = self.segments[0].start
-            self.end = self.segments[-1].end
-        else:
-            self.start = -1.
-            self.end = -1.
+        self.start = self.segments[0].start
+        self.end = self.segments[-1].end
         # Functions to add content
     def addsegment(self, p=-1, start=-1., end=-1., cont="", id="", ref="",
                    unit=True, tier=None, mode=0):
@@ -430,18 +426,18 @@ class Tier:
                 if ps_ind < 0:
                     break
                 l_master[-1].append((l_parent[a][0],l_parent[a][1],
-                                     [ps_ind],o_ind))
+                                     [ps_ind],[o_ind]))
                 ref = self.trans.tiers[l_parent[a][0]] \
                                 .segments[ps_ind].ref
                 o_ind = ps_ind
             l_master[-1].reverse()
                 # Main tier
-            l_master[-1].append((t_ind,t_ind,[s_ind],s_ind))
+            l_master[-1].append((t_ind,t_ind,[s_ind],[s_ind]))
                 # Children
             if not l_child:
                 continue
             l_ids = [(t_ind,t_ind,[s_ind])]
-            l_temp = []; l_cur = l_ids[0]
+            l_temp = []; l_cur = l_ids[0]; l_inds = []
             for a in range(1,len(l_child)):
                 c_ind = l_child[a][0]; ctier = self.trans.tiers[c_ind]
                     # We need the correct parent tier
@@ -458,12 +454,15 @@ class Tier:
                 for ss_ind in l_cur[2]:
                     id = self.trans.tiers[l_cur[0]] \
                                    .segments[ss_ind].id
-                    if id in ld_child[a]:
-                        l_temp = l_temp + ld_child[a][id]
+                    l_tmp = ld_child[a].get(id,[])
+                    for b in range(len(l_tmp)):
+                        l_temp.append(l_tmp[b])
+                        l_inds.append(ss_ind)
                     # We update the reference segments
-                l_master[-1].append((c_ind,ctier.pindex,l_temp.copy(),ss_ind))
+                l_master[-1].append((c_ind,ctier.pindex,
+                                     l_temp.copy(),l_inds.copy()))
                 l_ids.append((c_ind,ctier.pindex,l_temp.copy()))
-                l_cur = l_ids[-1]; l_temp.clear()
+                l_cur = l_ids[-1]; l_temp.clear(); l_inds.clear()
             # Clearing lists
         l_ind.clear(); l_parent.clear(); l_child.clear()
         ld_parent.clear(); ld_child.clear()
@@ -1139,8 +1138,10 @@ class Transcription:
         If 'insert>=0', inserted at index 'insert'; otherwise appended."""
         if insert >= 0 and insert < len(self.tiers):
             self.tiers.insert(insert, Tier(name, start, end, self))
+            return (insert,self.tiers[insert])
         else:
             self.tiers.append(Tier(name, start, end, self))
+            return (len(self.tiers)-1,self.tiers[-1])
     def removetier(self, ind=-1):
         """Removes the tier.
         We check the parent and remove the children index accordingly."""
@@ -1190,11 +1191,8 @@ class Transcription:
         """Adjusts each tier's first and last segment to match Transcriptions' start/end time
         mode: '0' to simply update the segment's boundary; '1' to create new segments"""
         for tier in self.tiers:
-            if tier.segments:
-                n_start = tier.segments[0].start
-                n_end = tier.segments[-1].end
-            else:
-                continue
+            n_start = tier.segments[0].start
+            n_end = tier.segments[-1].end
             if mode == 0:
                 if n_start > self.start:
                     tier.segments[0].start = self.start
@@ -1441,27 +1439,27 @@ class Transcription:
                 self.tiers[a].parent = ""; self.tiers[a].pindex = -1
 
             # Mode = 1: we add to the structure using timestamps
-        """if mode == 1:
-            l_struct = []; l_ind = []; l_ti = []
+        if mode == 1:
+            l_struct = []; l_ti = []
             l_segs = []; l_pos = []; l_max = []; l_acc = []
                 # We only keep 'time' tiers
-            for a in l_tiers:
+            for a in range(len(l_tiers)):
                 if gl_check[a][2] and self.tiers[a].segments:
-                    l_ind.append(a); l_ti.append(self.tiers[a])
+                    l_ti.append(self.tiers[l_tiers[a]])
                     l_struct.append([]); l_acc.append(0)
                     l_segs.append(l_ti[-1].segments[0])
                     l_pos.append(0); l_max.append(len(l_ti[-1]))
                 # l_struct is actually a matrix
                 ## list of lists of integers
             for struct in l_struct:
-                for a in l_ind:
+                for a in l_ti:
                     struct.append(0)
             pl = len(l_ti)
                 # We compare segs
             while True:
                     # Step 1: we get the earliest segment
                 seg = None; ind = -1; start = -1.
-                for a in range(len(l_segs)):
+                for a in range(1,len(l_segs)):
                     sseg = l_segs[a]
                     if sseg == None:
                         continue
@@ -1494,11 +1492,12 @@ class Transcription:
                     l_segs[ind] = None
                 else:
                     l_segs[ind] = l_ti[ind].segments[l_pos[ind]]
+            del l_acc; del l_segs; del l_pos; del l_max
                 # We now have filled a matrix 'l_struct'
                 ## Time to get the best result for each tier
                 ## We'll also take that occasion to give them ids
             count = 0; pos = 0
-            for a in range(len(l_struct)):
+            for a in range(1,len(l_struct)):
                     # Get the smallest positive result
                     ## This is the trick to seek the closest parent
                 s = -1; ind = -1
@@ -1515,10 +1514,11 @@ class Transcription:
                         seg.id = ids+str(count); count += 1
                         for b in range(pos,pl):
                             cseg = tier.segments[b]; cseg.ref = seg.id
-                            cseg.id = ids.str(count); count += 1
+                            cseg.id = ids+str(count); count += 1
                             if cseg.end == seg.end:
                                 pos = b+1; break
-        """
+            del l_struct; del l_ti
+        
             # Timestamps or not, we renew the ids
             ## This also sets the tier levels
             ## We get the parents
