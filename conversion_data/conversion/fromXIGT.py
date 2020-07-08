@@ -34,7 +34,7 @@ def setRef(string):
     else:
         l_refs = [string]
     return l_refs
-def getStruct(elem,sep,child):
+def getStruct(elem,sep,child,d_struct):
     """Support function to turn an <igt> xml element
     into a tuple (d_ids,l_segs):
     - a list of segments 'l_segs'
@@ -47,7 +47,7 @@ def getStruct(elem,sep,child):
     d_ids = {}
     l_segs = []; ln = 0; ch_align = False; ch_child = False
     i_item = 0; i_ref = 0; i_ttype = 0; i_sid = 0; d_type = {} # increments
-    s_old = ""; t_type = ""
+    s_muff = ""; t_type = ""
 
         #### For each <tier> ####
     for tier in elem.iter("tier"):
@@ -56,7 +56,7 @@ def getStruct(elem,sep,child):
         if not t_save:
             t_save = "tier"+str(i_ttype); i_ttype += 1
             #### For each <item> in that <tier> ###
-        i_item = 0; s_old = ""; t_type = ""; d_type.clear()
+        i_item = 0; t_type = ""; d_type.clear()
         for item in tier.iter("item"):
                 # attributes
                 ## content
@@ -81,11 +81,14 @@ def getStruct(elem,sep,child):
                 else:
                     ch_align = True
             if s_ref:
-                s_ref = setRef(s_ref)   # We want a list of refs
-            elif i_item == 0:
-                s_ref = [s_id]; s_old = s_id    # default 'self'
+                s_ref = setRef(s_ref)           # We want a list of refs
+            elif t_save in d_struct:
+                s_ref = [s_id]; s_muff = s_id   # 'muffin' case
             else:
-                s_ref = [s_old]                 # 'muffin' case
+                if s_muff:
+                    s_ref = [s_muff]            # default self
+                else:
+                    s_ref = [s_id]
                 # We add
             i_ref = 0; lref = len(s_ref); s_content = ""
             for ref in s_ref:
@@ -113,7 +116,14 @@ def getStruct(elem,sep,child):
                     # to 'd_ids'
                 d_ids[s_id] = ln; ln += 1; i_ref += 1
             i_item += 1
+        # Last loop to fix 'muffin' case
+    if s_muff:
+        for a in range(len(l_segs)):
+            if l_segs[a][1] == l_segs[a][0]:
+                l_segs[a] = (l_segs[a][0],s_muff,l_segs[a][2],
+                             l_segs[a][3],l_segs[a][4])
     return (d_ids,l_segs)
+
 def getTiers(trans,d_tiers,struct,g_id,i_id):
     """Support function to add tiers / segments to 'trans'.
     
@@ -129,7 +139,6 @@ def getTiers(trans,d_tiers,struct,g_id,i_id):
     - no recursion is used due to Python's default depth and modes."""
     
         # Unpacking 'struct'
-    d_ids,l_segs = struct
     d_ids,l_segs = struct
         # Variables
     l_loop = []; l_temp = []
@@ -161,7 +170,7 @@ def getTiers(trans,d_tiers,struct,g_id,i_id):
                     ptier.addchild(t_ind)
                     # id
                 s_id = g_id+str(i_id); i_id += 1
-                tier.addsegment(-1,-1,-1,content,s_id,pseg.id,
+                tier.addsegment(-1,-1.,-1.,content,s_id,pseg.id,
                                 True,tier,1)
                 if s_type:
                     tier.segments[-1].metadata["type"] = s_type
@@ -187,7 +196,7 @@ def getTiers(trans,d_tiers,struct,g_id,i_id):
             else:
                 l_temp.append(a)
         l_loop = l_temp.copy(); l_temp.clear()
-        return i_id
+    return i_id
     # Main function
 def fromXIGT(f,**args):
     """Creates a Transcription object out of an ".xml" file.
@@ -202,12 +211,14 @@ def fromXIGT(f,**args):
     should not."""
     
     trans = Transcription()
-    d_tiers = {}                # keeps track of tiers
-    g_id = args.get("id","a")   # for id increment (see 'getTiers')
-    i_id = 0
-    sep = args.get("sep","_")   # for type increment (see 'getStruct')
-    child = args.get("child"    # to append to a 'children' tier
-                     ,"_child") #  (see 'getStruct')
+    d_tiers = {}                        # keeps track of tiers
+    d_struct = args.get("struct",{})    # user-defined structure
+    struct = None
+    g_id = args.get("id","a")           # for id increment (see 'getTiers')
+    i_id = 0                            
+    sep = args.get("sep","_")           # for type increment (see 'getStruct')
+    child = args.get("child",           # to append to a 'children' tier
+                     "_child")          #  (see 'getStruct')
     
     root = None; b_root = False
         # Main loop
@@ -215,7 +226,7 @@ def fromXIGT(f,**args):
         if not b_root:
             root = elem; b_root = True
         elif event == "end" and elem.tag == "igt":
-            struct = getStruct(elem,sep,child)      # get the structure
+            struct = getStruct(elem,sep,child,d_struct)
             root.remove(elem)
             i_id = getTiers(trans,d_tiers,struct,   # use it on 'trans'
                             g_id,i_id)

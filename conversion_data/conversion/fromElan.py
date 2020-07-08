@@ -212,9 +212,6 @@ def fromElan(f,**args):
             elif elem.tag == "ANNOTATION_DOCUMENT":
                 readFooter(trans,root)
                 root.clear()
-        # I am tired of time errors
-    if setchildtime:
-        trans.setchildtime()
         # Transcription name and format
-    getFormat(f,trans); trans.setstructure(setchildtime=False)
+    getFormat(f,trans); trans.setstructure(setchildtime=setchildtime)
     return trans

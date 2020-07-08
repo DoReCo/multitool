@@ -169,8 +169,8 @@ def toExmaralda(f, trans, **args):
     for a in range(len(trans)):
         tran = trans[a]; ff = f[a]
             # Complete information
-        tran.settimetable(1,truetype=False)
         tran.setchildtime(); tran.checkSpeakers()
+        tran.settimetable(1,truetype=False)
             # Actual writing
         with open(ff, 'w', encoding=encoding) as file:
                 #XML header

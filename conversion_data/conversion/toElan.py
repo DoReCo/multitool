@@ -2,20 +2,21 @@ from .Transcription import Transcription, Tier
 
 def escape(data):
     """Support function to replace xml>sax>saxutils."""
+    
     data = data.replace("&","&amp;").replace("\"","&quot;") \
-               .replace("'","&apos;").replace("<","&lt;") \
-               .replace(">","&gt;")
+               .replace("'","&apos;").replace("<","&lt;").replace(">","&gt;")
     return data
 
 def writeHOpen(file,trans):
     """Support support function to write user-defined metadata in the header."""
     
-        # Let us go with all 'transcription' open metadata
+        # I actually have no idea how to handle this...
+        # So for now it will remain empty
+        # Eventually the user should be able to choose
     
-    for key,value in trans.metadata.transcript.open.items():
+    for key,value in trans.metadata.transcript:
         file.write("\t\t<PROPERTY NAME=\"{}\">{}</PROPERTY>\n"
                    .format(key,value))
-    pass
 def writeHeader(file,trans):
     """Support function to write the header (and annotation document start)."""
     
@@ -29,13 +30,12 @@ def writeHeader(file,trans):
     if versions:
         author = versions[-1][2]; date = versions[-1][1]
     del versions
-    time_units = trans.metadata.recording.open.get('TIME_UNITS',"milliseconds")
     file.write("<ANNOTATION_DOCUMENT DATE=\"{}\" AUTHOR=\"{}\" FORMAT=\"{}\" "
                "VERSION=\"{}\" xmlns:xsi=\"http://www.w3.org/2001/"
                "XMLSchema-instance\" xsi:noNamespaceSchemaLocation=\""
                "http://www.mpi.nl/tools/elan/EAFv3.0.xsd\">\n\t<HEADER "
-               "MEDIA_FILE=\"{}\" TIME_UNITS=\"{}\">\n"
-               .format(date,author,version,version,n_audio,time_units))
+               "MEDIA_FILE=\"{}\" TIME_UNITS=\"milliseconds\">\n"
+               .format(date,author,version,version,n_audio))
         # We add the actual header's stuff
     url = ""; type = ""; count = 0; check = False
         # We get back our MEDIA_DESCRIPTORs oh yeah
@@ -56,7 +56,7 @@ def writeHeader(file,trans):
         for key,value in med.items():
             n_media = n_media + " {}=\"{}\"".format(key,value)
         file.write(n_media+"/>\n")
-        
+    
         # If ELAN failed us, resort to 'omni' metadata
         ## Note: no need to check if '<HEADER>' contains something, it will
     if not check:
@@ -71,12 +71,9 @@ def writeHeader(file,trans):
                     type = trans.metadata.recording.type[a]
                     file.write(" MIME_TYPE=\"{}\"".format(type))
                 file.write("/>\n")
-            # We really, really want a media descriptor, so... default
-        else:
-            file.write("\t\t<MEDIA_DESCRIPTOR MEDIA_URL=\"{}.wav\""
-                       " MIME_TYPE=\"audio/x-wav\"/>\n"
-                       .format(trans.name))
         # We get... everything else
+        ## Note: I'm not a masochist, so only 'corpus' and 'transcript' are in there
+        ## Note: We can only handle 'strings' here... for now
     writeHOpen(file,trans)
     file.write("\t</HEADER>")
 def writeTime(file,trans):
@@ -210,6 +207,14 @@ def writeFooter(file,trans,l_types):
             l_temp.clear()
     else:
         l_ttypes = l_types
+        # clean types
+    d_temp = {}; l_temp = []
+    for tuple in l_ttypes:
+        if tuple[0] not in d_temp:
+            l_temp.append(tuple)
+            d_temp[tuple[0]] = True
+    l_ttypes = l_temp.copy()
+    del d_temp; del l_temp
     for tuple in l_ttypes: # using "truetype" to determine the type of type
         if not tuple[1] == "time":
             footer = ("\t<LINGUISTIC_TYPE LINGUISTIC_TYPE_ID=\"{}\" "
@@ -240,8 +245,8 @@ def toElan(f, trans, **args):
     
         # Encoding
     encoding = args.get('encoding',"utf-8")
-    settime = args.get('settimetable',True)
-    setstruct = args.get('setstructure',True)
+    setchildtime = args.get('setchildtime',False)
+    setstructure = args.get('setstructure',True)
         # We need a list of transcriptions
     if not args.get('multiple',False):
         trans = [trans]; f = [f]
@@ -249,10 +254,10 @@ def toElan(f, trans, **args):
     for a in range(len(trans)):
         tran = trans[a]; ff = f[a]
             # Complete information
-        if settime:
-            tran.settimetable(1)
-        if setstruct:
-            tran.setstructure()
+        tran.settimetable(1)
+        if setstructure:
+            tran.setstructure(setchildtime=setchildtime)
+        
         with open(ff, 'w', encoding=encoding) as file:
             copy = ""
                 # XML head

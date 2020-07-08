@@ -96,6 +96,9 @@ def escape(data):
     """Support function to replace 'xml>sax>saxutils'.
     Why is that needed here I don't know."""
     
+    if not data:
+        return ""
+
     data = data.replace("&quot;","\"").replace("&apos;","'") \
                .replace("&lt;","<").replace("&gt;",">").replace("&amp;","&")
     return data
@@ -363,7 +366,7 @@ def fromPangloss(f,**args):
                     continue
                     # Get the header
                 soundfile = elem.find("SOUNDFILE")
-                if soundfile:
+                if not soundfile == None:
                     n = ""; u = soundfile.attrib["href"]
                     trans.metadata.recording.url.append(u)
                     if "\\" in u:
