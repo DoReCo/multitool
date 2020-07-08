@@ -1,6 +1,8 @@
 # Multitool
 A file conversion/manipulation software for corpus linguistics.
 
+See the [Github's wiki](https://github.com/DoReCo/multitool/wiki) for documentation.
+
 ## 0. Readme updates
 (François Delafontaine: Lyon, 27-01-2020)
 
