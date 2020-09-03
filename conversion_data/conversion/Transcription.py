@@ -1449,10 +1449,10 @@ class Transcription:
                 if 'speaker' in tier.metadata:
                     ctier.metadata['speaker'] = tier.metadata['speaker']
                 if l_types:
-                    ctier.type = l_types[a]
-                    ctier.truetype = l_types[a]
+                    ctier.type = l_types[a][0]
+                    ctier.truetype = l_types[a][1]
                 else:
-                    ctier.type = 'ref'
+                    ctier.type = 'tok'
                     ctier.truetype = 'ref'
                     # We tokenize
                 for seg in tier:

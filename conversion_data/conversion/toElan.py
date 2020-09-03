@@ -156,7 +156,7 @@ def writeTier(file,trans,tier,timeorder,l_types):
     else:
         type = "time" # Default to time-alignment
     if not type in l_types:
-        l_types.append((type,tier.truetype))
+        l_types.append((type,tier.truetype,tier.parent))
         # We write the tier head
     file.write("\t<TIER TIER_ID=\""+escape(tier.name)+"\" LINGUISTIC_TYPE_REF=\""
                +type+"\"")
@@ -221,6 +221,11 @@ def writeFooter(file,trans,l_types):
                       "TIME_ALIGNABLE=\"{}\" CONSTRAINTS=\"Symbolic_"
                       "Subdivision\" GRAPHIC_REFERENCES=\"{}"
                       "\"/>\n".format(tuple[0],"false","false")) + footer
+        elif tuple[2]:
+            footer = ("\t<LINGUISTIC_TYPE LINGUISTIC_TYPE_ID=\"{}\" "
+                      "TIME_ALIGNABLE=\"{}\" CONSTRAINTS=\"Time_"
+                      "Subdivision\" GRAPHIC_REFERENCES=\"{}"
+                      "\"/>\n".format(tuple[0],"true","false")) + footer
         else:
             footer = ("\t<LINGUISTIC_TYPE LINGUISTIC_TYPE_ID=\"{}\" "
                       "TIME_ALIGNABLE=\"{}\" GRAPHIC_REFERENCES=\"{}"
