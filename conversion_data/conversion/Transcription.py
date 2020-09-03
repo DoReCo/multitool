@@ -1443,6 +1443,7 @@ class Transcription:
                 for b in range(a+1,li):
                     if insert[b] > ind:
                         insert[b] += 1
+                lt = len(self.tiers)
                     # We parent the new tier
                 ctier.parent = tier.name; ctier.pindex = ind
                 tier.addchild(cind)
