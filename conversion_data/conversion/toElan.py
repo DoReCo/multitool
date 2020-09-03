@@ -246,7 +246,6 @@ def toElan(f, trans, **args):
         # Encoding
     encoding = args.get('encoding',"utf-8")
     setchildtime = args.get('setchildtime',False)
-    setstructure = args.get('setstructure',True)
         # We need a list of transcriptions
     if not args.get('multiple',False):
         trans = [trans]; f = [f]
@@ -254,10 +253,7 @@ def toElan(f, trans, **args):
     for a in range(len(trans)):
         tran = trans[a]; ff = f[a]
             # Complete information
-        tran.settimetable(1)
-        if setstructure:
-            tran.setstructure(setchildtime=setchildtime)
-        
+        tran.settimetable(1); tran.setstructure(setchildtime=setchildtime)
         with open(ff, 'w', encoding=encoding) as file:
             copy = ""
                 # XML head

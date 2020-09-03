@@ -25,7 +25,6 @@ def toPraat(f, trans, **args):
         tran = trans[a]; ff = f[a]
             # Complete information
         tran.setchildtime(); tran.checktime(1); tran.uptime(1)
-
             # Actual writing
         with open(ff, 'w', encoding=encoding) as file:
                 # Header

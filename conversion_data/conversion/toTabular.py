@@ -260,7 +260,7 @@ def createTabular(f,trans,ref_tier,l_tiers=[],l_args=[],**args):
             for t_ind,tier in l_ctiers:
                 d_ctiers[tran][tier_name].append((t_ind,tier))
     del l_trans
-
+    
         # Variables
         ## l_args
     ch_tuple,ch_ids,d_IPA,d_SAMPA = chargs(l_args)
@@ -283,15 +283,14 @@ def createTabular(f,trans,ref_tier,l_tiers=[],l_args=[],**args):
             # Additional columns
         for tier_name in l_tiers:
             if ch_ids:
-                l_cols = []
-                file.write(sep); l_cols = []; count = 0
+                file.write(sep); count = 0
                 for tran,d_cols in d_ctiers.items():
                     tr_id = toTab[0].get(tran.name)
                     l_temp = d_cols[tier_name]
                     for t_cind,ctier in l_temp:
                         if count > 0:
                             file.write(m_sep)
-                        file.write(toTab[2][tr_id+"_"+ctier.name])
+                        file.write(toTab[2][tr_id+"_"+str(t_cind)])
                         count += 1
             file.write(sep+tier_name)
         file.write("\n"); count = 0
@@ -300,7 +299,7 @@ def createTabular(f,trans,ref_tier,l_tiers=[],l_args=[],**args):
         for tran,tr_ind,rtier in l_refs:
             lr = len(rtier); tr_id = toTab[0].get(tran.name)
             spk_id = toTab[1].get(rtier.metadata['speaker'])
-            ti_id = toTab[2].get(tr_id+"_"+rtier.name)
+            ti_id = toTab[2].get(tr_id+"_"+str(tr_ind))
                 # For each segment
             for a in range(lr):
                 seg = rtier.segments[a]
@@ -322,26 +321,32 @@ def createTabular(f,trans,ref_tier,l_tiers=[],l_args=[],**args):
                 d_segs = seg.getfulltree(tr_ind,a,dict=True)
                 d_cols = d_ctiers[tran]
                 for tier_name,l_ctiers in d_cols.items():
-                    t_cind = -1; ctier = None
+                    l_ctier = []; text = "";c_count = 0
                     for i,ti in l_ctiers:
                         if i in d_segs:
-                            t_cind = i; ctier = ti; break
-                    l_segs = d_segs.get(t_cind,[])
-                    if not l_segs:   
+                            l_ctier.append((i,ti))
+                    for t_cind,ctier in l_ctier:
+                        l_segs = d_segs.get(t_cind,[])
+                        if not l_segs:
+                            continue
+                        tc_id = toTab[2].get(tr_id+"_"+str(t_cind))
+                            # content/id
+                        cseg = ctier.segments[l_segs[0]]
+                        if c_count > 0:
+                            text = text+m_sep
+                        text = text+cseg.content
+                        id = toTab[3].get(tc_id+"_"+cseg.id)
+                        for b in range(1,len(l_segs)):
+                            cseg = ctier.segments[l_segs[b]]
+                            text = text+m_sep+cseg.content
+                            id = id+m_sep+toTab[3].get(tc_id+"_"+cseg.id)
+                        # writing
+                    if not text:
                         if ch_ids:
-                            file.write(sep+sep)
+                            file.write(sep,sep)
                         else:
                             file.write(sep)
                         continue
-                    tc_id = toTab[2].get(tr_id+"_"+ctier.name)
-                        # content/id
-                    cseg = ctier.segments[l_segs[0]]
-                    text = cseg.content; id = toTab[3].get(tc_id+"_"+cseg.id)
-                    for b in range(1,len(l_segs)):
-                        cseg = ctier.segments[l_segs[b]]
-                        text = text+m_sep+cseg.content
-                        id = id+m_sep+toTab[3].get(tc_id+"_"+cseg.id)
-                        # writing
                     if ch_ids:
                         file.write(sep)
                         if ti_id:
@@ -367,8 +372,9 @@ def getIDs(trans):
             if spk not in d_spk:
                 d_spk[spk] = spk_id+str(spk_count); spk_count += 1
             # Tier IDs
-        for tier in tran:
-            t_name = tr_id+str(tr_count)+"_"+tier.name
+        for a in range(len(tran)):
+            tier = tran.tiers[a]
+            t_name = tr_id+str(tr_count)+"_"+str(a)
             d_tiers[t_name] = ti_id+str(ti_count); # 'ti_count' incr' later
             for seg in tier:
                 if seg.unit == False:
@@ -479,10 +485,11 @@ def writeTiers(dir,trans,d_trans,d_spk,d_tiers,encoding,sep,m_sep):
             # Rows
         for tran in trans:
             tr_id = d_trans[tran.name]
-            for tier in tran:
-                ti_id = d_tiers[tr_id+"_"+tier.name]; pti_id = ""
+            for a in range(len(tran)):
+                tier = tran.tiers[a]
+                ti_id = d_tiers[tr_id+"_"+str(a)]; pti_id = ""
                 if tier.parent:
-                    pti_id = d_tiers[tr_id+"_"+tier.parent] # parent tier
+                    pti_id = d_tiers[tr_id+"_"+str(tier.pindex)] # parent tier
                 spk_id = d_spk[tier.metadata['speaker']]
                 file.write("\n{1}{0}{2}{0}{3}{0}{4}{0}{5}{0}{6}{0}{7}{0}{8}"
                            .format(sep,ti_id,tr_id,spk_id,tier.name,
@@ -510,9 +517,10 @@ def writeTran(dir,trans,tr_id,d_spk,d_tiers,d_seg,encoding,sep,m_sep):
             # Column headers
         fillCol(file,sep,l_tiers)
             #Rows
-        for tier in trans:
-            ti_id = d_tiers[tr_id+"_"+tier.name]
-            pti_id = d_tiers.get(tr_id+"_"+tier.parent,"")
+        for a in range(len(trans)):
+            tier = trans.tiers[a]
+            ti_id = d_tiers[tr_id+"_"+str(a)]
+            pti_id = d_tiers.get(tr_id+"_"+str(tier.pindex),"")
             for seg in tier:
                 if seg.unit == False:
                     continue
@@ -538,9 +546,9 @@ def writeTier(dir,trans,tier,tr_id,d_spk,d_tiers,d_seg,encoding,sep,m_sep):
     
         # Variables
     sg_id = "seg"; count = 0
-    ti_id = d_tiers[tr_id+"_"+tier.name]
+    ti_id = d_tiers[tr_id+"_"+str(tier._gettierindex())]
     spk_id = d_spk[tier.metadata['speaker']]
-    pti_id = d_tiers.get(tr_id+"_"+tier.parent,"")
+    pti_id = d_tiers.get(tr_id+"_"+str(tier.pindex),"")
     l_tiers = ["\"ID\"","Trans_ID","Tiers_ID",  # Static data columns
                "start","end","content",
                "dependency","notes",

@@ -30,7 +30,7 @@ class Tree:
         self.id = id
         self.time = (-1.,-1.)
             # Levels
-        self.struct = []
+        self.struct = struct
         self.cur = 0
         self.pos = []
         self.max = []
@@ -45,12 +45,10 @@ class Tree:
         child = self.parent.children
             ## 'self.pos' / 'self.max' / checks
         for a in range(len(struct)):
-            sind = struct[a][0]
-            self.struct.append(sind)
-            self.pos.append(0); self.max.append(len(trans.tiers[sind]))
+            self.pos.append(0); self.max.append(len(trans.tiers[struct[a]]))
             self.open.append(False); self.active.append(False); self.over.append(False)
             self.nochild.append(True)
-            if trans.tiers[sind].children:
+            if trans.tiers[struct[a]].children:
                 self.nochild[-1] = False
        
     def addChild(self,time=(-1.,-1.),pos=-1):
@@ -291,7 +289,7 @@ def checkType(trans, l_parents, l_struct, l_type, l_plevs):
             for struct in l_struct:
                     # For each child tier
                 order = 0
-                for a,ap,ac in struct:
+                for a in struct:
                     Ctier = trans.tiers[a]; lc = len(Ctier)
                     Ptier = trans.tiers[Ctier.pindex]; lpt = len(Ptier)
                         # If more segments anyway, it's subd
@@ -458,7 +456,7 @@ def toPangloss(f,trans,**args):
             # We get their children trees:
             ## 'getAllChildren' : see 'Transcription.py>Tier>getAllChildren'
         for a in l_parents:
-            l_struct.append(trans.tiers[a].getallchildren(1))
+            l_struct.append(trans.tiers[a].getAllChildren(1))
             # We check 'l_type'
             ## If the provided 'l_type' proved incomplete, we need to recreate
             ##  one
@@ -478,7 +476,7 @@ def toPangloss(f,trans,**args):
             l_type[key] = (tier.pindex,l_type[key][1],l_type[key][2])
         trans.setstructure(); l_struct.clear()
         for a in l_parents:
-            l_struct.append(trans.tiers[a].getallchildren(1))
+            l_struct.append(trans.tiers[a].getAllChildren(1))
         break
         
         #### We start writing ####

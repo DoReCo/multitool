@@ -725,7 +725,7 @@ class Tier:
                 for a in range(lt):
                     ptier = self.trans.tiers[a]
                     if index in ptier.children:
-                        tier.pindex = a; tier.parent = ptier.name
+                        self.pindex = a; self.parent = ptier.name
                         check = True; break
             # By ppoint
         if not check:
@@ -1446,8 +1446,14 @@ class Transcription:
                     # We parent the new tier
                 ctier.parent = tier.name; ctier.pindex = ind
                 tier.addchild(cind)
+                if 'speaker' in tier.metadata:
+                    ctier.metadata['speaker'] = tier.metadata['speaker']
                 if l_types:
-                    tier.truetype = l_types[a]
+                    ctier.type = l_types[a]
+                    ctier.truetype = l_types[a]
+                else:
+                    ctier.type = 'ref'
+                    ctier.truetype = 'ref'
                     # We tokenize
                 for seg in tier:
                     if seg.unit == False or not seg.content:
@@ -1462,6 +1468,8 @@ class Transcription:
                             cont = ""
                         else:
                             cont = cont + char
+                    if cont:
+                        l_cont.append(cont)
                         # We create the new segments
                     lc = len(l_cont)
                     for b in range(lc):
@@ -1470,6 +1478,7 @@ class Transcription:
                         c_end = start+(dur*((b+1)/lc))
                         ctier.addsegment(-1,c_start,c_end,cont,id,
                                          seg.id,True,ctier,1)
+                        cseg = ctier.segments[-1]
         return l_tiers
     def addtier(self, name="", start=-1., end=-1., insert=-1):
         """Creates and adds the tier.
