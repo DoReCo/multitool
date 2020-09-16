@@ -110,14 +110,18 @@ class Segment:
                     s_ind = a; break
         return (t_ind,s_ind)
         # 'gettree' and 'getfulltree'
-    def _getparents(self,trans,t_ind,s_ind,l_master):
+    def _getparents(self,trans,t_ind,s_ind,l_master=[],check=True):
         """Support function for 'gettree' and 'getfulltree'.
         Note: list is not reversed yet for 'getfulltree'."""
         o_ind = t_ind; index = self.tier.pindex
-        ptier = self.tier; self.tier.checkparenting(index)
+        ptier = self.tier
+        if check:
+            self.tier.checkparenting(index)
         ss_ind = s_ind; ref = self.ref
         while ptier.pindex >= 0 and ref:
-            ptier = trans.tiers[index]; ptier.checkparenting(index)
+            ptier = trans.tiers[index]
+            if check:
+                ptier.checkparenting(index)
                 # We find the segment
             for a in range(len(ptier)):
                 if ptier.segments[a].id == ref:
@@ -125,15 +129,18 @@ class Segment:
                     ref = ptier.segments[a].ref; ss_ind = a; break
             o_ind = index; index = ptier.pindex
         return l_master
-    def _getchildren(self,trans,t_ind,s_ind,l_master):
+    def _getchildren(self,trans,t_ind,s_ind,l_master=[],
+                     l_struct=None,check=True):
         """Support function for 'gettree' and 'getfulltree'."""
-        l_struct = self.tier.getallchildren(1)
+        if not l_struct:
+            l_struct = self.tier.getallchildren(1)
         if not l_struct:
             return l_master
         l_ids = [(t_ind,t_ind,[s_ind])]; l_temp = []; l_cur = l_ids[0]
         for a in range(1,len(l_struct)):
             c_ind = l_struct[a][0]; ctier = trans.tiers[c_ind]
-            ctier.checkparenting(c_ind)
+            if check:
+                ctier.checkparenting(c_ind)
                 # We are lazy (and also needlessly thorough)
             d_segs = {}
             for a in range(len(ctier)):
@@ -369,7 +376,7 @@ class Tier:
     def hash(self,time=-1.):
         """Finds the segment within which 'time' occurs."""
         if time < 0. or not self.thash:
-            return None
+            return (-1,None)
             # Variables
         list = []; t = int(time*10); lh = len(self.thash)
         for a in range(lh):
@@ -396,8 +403,15 @@ class Tier:
             # Search (on self.segments)
         for a in range(tuple[0],tuple[1]):
             if ((time >= self.segments[a].start) and
-                (time <= self.segments[a].end)):
-                return self.segments[a]
+                (time < self.segments[a].end)):
+                return (a,self.segments[a])
+            # Second round if all else failed
+        if tuple[0] > 0:
+            for a in range(0,len(self.segments)):
+                if ((time >= self.segments[a].start) and
+                    (time < self.segments[a].end)):
+                    return (a,self.segments[a])
+        return (-1,None)
         # Basic functions
     def uptime(self, t_d, t_i):
         self.start = t_d
@@ -788,7 +802,7 @@ class Tier:
             seg = self.segments[a]
             if seg.unit == False:
                 continue
-            if (not seg.ref) or (seg.ref not in d_ref):
+            if (not seg.ref) or (not d_ref.get(seg.ref)):
                 l_refs.append(a); seg.ppoint = None
             else:
                 seg.ppoint = d_ref[seg.ref]
@@ -858,10 +872,10 @@ class Tier:
             self.setparent()
             if not self.ppoint:
                 return [-1]
-        ptier.sethash()
+        ptier = self.ppoint; ptier.sethash()
         for a in range(len(self.segments)):
             seg = self.segments[a]
-            pseg = ptier.hash(seg.start)
+            pind,pseg = ptier.hash(seg.start)
             if pseg and seg.end <= pseg.end:
                 seg.ppoint = pseg
             else:
@@ -920,7 +934,7 @@ class Corpus:
         for v in self.version:
             copy.version.append(v)
         copy.ownership = self.ownership.copy()
-        copy.open = self.open.deepcopy()
+        copy.open = self.open.copy()
         return copy
     def getall(self,open=True):
         """Returns a dictionary of all corpus metadata.
@@ -977,7 +991,7 @@ class Record:
         copy.version = []
         for v in self.version:
             copy.version.append(v)
-        copy.open = self.open.deepcopy()
+        copy.open = self.open.copy()
         return copy
     def getall(self,open=True):
         """Returns a dictionary of all corpus metadata.
@@ -1039,7 +1053,7 @@ class Transcript:
         for v in self.version:
             copy.version.append(v)
         copy.ownership = self.ownership.copy()
-        copy.open = self.open.deepcopy()
+        copy.open = self.open.copy()
         return copy
     def getall(self,open=True):
         """Returns a dictionary of all corpus metadata.
@@ -1104,8 +1118,8 @@ class Speaker:
     def copy(self):
         copy = Speaker(self.name,self.gender,self.age,self.birhtDate,
                        self.birthLoc,self.curDate,self.curloc,self.familyState,
-                       self.eduState,self.jobState,self.languages.deepcopy(),
-                       self.open.deepcopy())
+                       self.eduState,self.jobState,self.languages.copy(),
+                       self.open.copy())
         return copy
     def getall(self):
         """Provides a tuple of all variables."""

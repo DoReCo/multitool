@@ -15,6 +15,7 @@ def toPraat(f, trans, **args):
     
         # Encoding
     encoding = args.get('encoding',"utf-8")
+    check = args.get('check',True)
         # Sym   (used to fill 'False' segments)
     sym = args.get('sym',"_")
         # We need a list of transcriptions
@@ -24,7 +25,8 @@ def toPraat(f, trans, **args):
     for a in range(len(trans)):
         tran = trans[a]; ff = f[a]
             # Complete information
-        tran.setchildtime(); tran.checktime(1); tran.uptime(1)
+        if check:
+            tran.setchildtime(); tran.checktime(1); tran.uptime(1)
             # Actual writing
         with open(ff, 'w', encoding=encoding) as file:
                 # Header
